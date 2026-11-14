@@ -129,6 +129,12 @@ En la carpeta `UPLOADS_DIR` (por defecto `./uploads`, fuera de git), con
 nombre aleatorio: `listings/<uuid>.jpg`. En la base solo se guarda esa ruta
 relativa; la API nunca expone rutas del servidor.
 
+En Docker, `UPLOADS_DIR` es `/app/uploads`. El Dockerfile crea esa carpeta con
+dueño `node` (el contenedor no corre como root) y `docker-compose.yml` monta
+ahí el volumen `uploads`, para que las fotos sobrevivan cuando se recrea el
+contenedor. En la demo desplegada hay que montar un volumen o disco
+persistente en la misma ruta.
+
 ### Permisos
 
 El `POST` lleva `@Roles('ARRENDADOR')` (Módulo 0, MP4-126): sin sesión
