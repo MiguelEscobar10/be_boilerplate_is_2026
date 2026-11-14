@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from '@Auth';
 import { JwtAuthGuard, RolesGuard } from '@Auth/guards';
 import { HealthModule } from '@Health';
+import { ListingsModule } from '@Listings';
 import { PrismaModule } from '@Prisma';
 import { UsersModule } from '@Users';
 import { validateEnv } from '@Config';
@@ -20,6 +21,7 @@ import { validateEnv } from '@Config';
     HealthModule,
     UsersModule,
     AuthModule,
+    ListingsModule,
   ],
   providers: [
     {
