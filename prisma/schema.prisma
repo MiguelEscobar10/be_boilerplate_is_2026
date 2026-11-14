@@ -39,6 +39,7 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   refreshTokens RefreshToken[]
+  notifications Notification[]
 
   @@map("users")
 }
@@ -59,4 +60,34 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+// Aviso informativo para un usuario (H10). Lo registra el servicio de avisos
+// (H20) y se consulta desde la bandeja. Ver docs/modulos/notificaciones.md.
+model Notification {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // TEXT hasta DB-20.1, que lo convierte al enum ModuloOrigen y agrega los
+  // límites de largo de title (1-100) y message (1-500).
+  sourceModule String @map("source_module")
+  title        String
+  // Sin datos sensibles: nunca números de tarjeta, códigos ni contraseñas.
+  message      String
+
+  // Referencia opcional a la entidad que originó el aviso (p. ej. una reserva).
+  // TEXT para no atarla al tipo de clave de ningún módulo.
+  referenceType String? @map("reference_type")
+  referenceId   String? @map("reference_id")
+
+  // null = pendiente de lectura. Es el único campo que cambia después de crear
+  // el aviso, por eso no hay updated_at.
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  // Bandeja de un usuario: pendientes (read_at IS NULL) y más recientes primero.
+  @@index([userId, readAt, createdAt(sort: Desc)])
+  @@map("notifications")
 }
