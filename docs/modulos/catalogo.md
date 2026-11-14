@@ -96,3 +96,41 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/si_be_boilerplate_te
   npx prisma migrate deploy
 npm run test:e2e
 ```
+
+## BE-01.1. Registro y consulta de publicaciones (MP4-33)
+
+### Endpoints
+
+| Método | Ruta | Sesión | Respuesta |
+|---|---|---|---|
+| `POST` | `/api/v1/publicaciones` | Sí | `201 { id, tipo, nombre, activo }` |
+| `GET` | `/api/v1/publicaciones/{id}` | No | `200` con la publicación y sus imágenes en orden |
+| `GET` | `/api/v1/publicaciones/{id}/imagenes/{orden}` | No | `200` con la foto (`image/jpeg` o `image/png`) |
+
+El `POST` recibe `multipart/form-data` con `tipo`, `nombre`, `descripcion`,
+`ubicacion`, `tarifaMonto`, `tarifaUnidad`, `depositoMonto`, `condiciones` y
+las fotos en `imagenes` (también se acepta `imagenes[]`, que es como lo manda
+un `FormData` del frontend).
+
+### Validaciones
+
+- Campos: las de la tabla de DB-01.1, con mensajes en español para mostrarlos
+  tal cual en el formulario.
+- Fotos: de 1 a 10, JPG o PNG, máximo 5 MB cada una. El tipo se revisa por la
+  firma del archivo, no por la extensión ni por el `Content-Type`, así que un
+  PDF renombrado a `.jpg` se rechaza.
+- Todo error de datos o de archivos responde **400** y no deja nada guardado:
+  si el insert falla después de escribir fotos, se borran.
+- Una publicación desactivada responde **404**, igual que una que no existe.
+
+### Dónde quedan las fotos
+
+En la carpeta `UPLOADS_DIR` (por defecto `./uploads`, fuera de git), con
+nombre aleatorio: `listings/<uuid>.jpg`. En la base solo se guarda esa ruta
+relativa; la API nunca expone rutas del servidor.
+
+### Pendiente
+
+- **403 para quien no es arrendador.** Depende del guard de roles del Módulo 0
+  (MP4-126). Por ahora cualquier usuario con sesión puede publicar; la prueba
+  quedó como `it.todo` en `test/listings.e2e-spec.ts`.
