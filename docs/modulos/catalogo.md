@@ -103,7 +103,7 @@ npm run test:e2e
 
 | Método | Ruta | Sesión | Respuesta |
 |---|---|---|---|
-| `POST` | `/api/v1/publicaciones` | Sí | `201 { id, tipo, nombre, activo }` |
+| `POST` | `/api/v1/publicaciones` | Sí, rol `ARRENDADOR` | `201 { id, tipo, nombre, activo }` |
 | `GET` | `/api/v1/publicaciones/{id}` | No | `200` con la publicación y sus imágenes en orden |
 | `GET` | `/api/v1/publicaciones/{id}/imagenes/{orden}` | No | `200` con la foto (`image/jpeg` o `image/png`) |
 
@@ -129,8 +129,7 @@ En la carpeta `UPLOADS_DIR` (por defecto `./uploads`, fuera de git), con
 nombre aleatorio: `listings/<uuid>.jpg`. En la base solo se guarda esa ruta
 relativa; la API nunca expone rutas del servidor.
 
-### Pendiente
+### Permisos
 
-- **403 para quien no es arrendador.** Depende del guard de roles del Módulo 0
-  (MP4-126). Por ahora cualquier usuario con sesión puede publicar; la prueba
-  quedó como `it.todo` en `test/listings.e2e-spec.ts`.
+El `POST` lleva `@Roles('ARRENDADOR')` (Módulo 0, MP4-126): sin sesión
+responde 401 y con una cuenta de arrendatario o revisor responde 403.

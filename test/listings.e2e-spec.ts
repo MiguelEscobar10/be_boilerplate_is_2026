@@ -93,7 +93,13 @@ describe('publicaciones (BE-01.1)', () => {
 
     await request(app.getHttpServer())
       .post('/api/v1/users')
-      .send({ email, password })
+      .send({
+        email,
+        password,
+        rol: 'ARRENDADOR',
+        nombre: 'Lee Fuentes',
+        telefono: '70001234',
+      })
       .expect(201);
     const login = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
@@ -220,6 +226,32 @@ describe('publicaciones (BE-01.1)', () => {
       .expect(404);
   });
 
-  // Depende del guard de roles del Módulo 0 (MP4-126).
-  it.todo('responde 403 si quien publica no es arrendador');
+  it('responde 403 si quien publica es arrendatario', async () => {
+    const tenant = `inquilino-${email}`;
+    await request(app.getHttpServer())
+      .post('/api/v1/users')
+      .send({
+        email: tenant,
+        password,
+        rol: 'ARRENDATARIO',
+        nombre: 'Ana',
+        telefono: '70005678',
+      })
+      .expect(201);
+    const login = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: tenant, password })
+      .expect(200);
+
+    try {
+      await request(app.getHttpServer())
+        .post('/api/v1/publicaciones')
+        .set('Authorization', `Bearer ${login.body.accessToken}`)
+        .field('tipo', 'EQUIPO')
+        .attach('imagenes', JPG, 'a.jpg')
+        .expect(403);
+    } finally {
+      await prisma.user.deleteMany({ where: { email: tenant } });
+    }
+  });
 });

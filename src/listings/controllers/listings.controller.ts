@@ -17,6 +17,7 @@ import {
   ApiBearerAuth,
   ApiConsumes,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -25,7 +26,7 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { memoryStorage } from 'multer';
-import { CurrentUser, Public } from '@Auth/decorators';
+import { CurrentUser, Public, Roles } from '@Auth/decorators';
 import {
   CreateListingDto,
   ListingCreatedDto,
@@ -57,10 +58,9 @@ export class ListingsController {
   /**
    * Publica un equipo o espacio (H01). Recibe multipart/form-data con los
    * datos y de 1 a 10 fotos en `imagenes` (también se acepta `imagenes[]`).
-   *
-   * TODO(MP4-126): cuando exista el guard de roles del Módulo 0, limitar a
-   * ARRENDADOR para que el resto reciba 403. Mientras tanto basta con sesión.
+   * Solo para cuentas ARRENDADOR; el resto recibe 403.
    */
+  @Roles('ARRENDADOR')
   @Post()
   @ApiBearerAuth()
   @ApiConsumes('multipart/form-data')
@@ -70,6 +70,7 @@ export class ListingsController {
     description: 'Datos inválidos o imágenes no admitidas.',
   })
   @ApiUnauthorizedResponse({ description: 'Falta la sesión.' })
+  @ApiForbiddenResponse({ description: 'La cuenta no es de arrendador.' })
   @UseFilters(UploadErrorsFilter)
   @UseInterceptors(
     FileFieldsInterceptor(
