@@ -54,3 +54,53 @@ seed se detiene para no publicar una contraseña conocida.
 comprueba el rol por defecto, los tres roles válidos, el rechazo de otro valor,
 el perfil único por cuenta, las reglas del teléfono y del nombre, y el borrado
 en cascada.
+
+## BE-00.1. Registro con rol, /auth/me y guard de roles (MP4-126)
+
+### Registro
+
+Se reutiliza el registro que ya traía el boilerplate (`POST /api/v1/users`)
+en lugar de crear `POST /auth/registro`: es el mismo recurso y así no hay dos
+formas de crear una cuenta. El frontend puede tener las dos pantallas
+(`/registro/arrendador` y `/registro/arrendatario`) llamando al mismo endpoint.
+
+```json
+{
+  "email": "lee@example.com",
+  "password": "Str0ngPass",
+  "rol": "ARRENDADOR",
+  "nombre": "Lee Fuentes",
+  "telefono": "70001234"
+}
+```
+
+- `rol` solo acepta `ARRENDADOR` o `ARRENDATARIO`. Vacío, `REVISOR`, `ADMIN`
+  o cualquier otro valor responde **400** con el mensaje `ROL_NO_PERMITIDO` y
+  no crea la cuenta. No hay ningún endpoint para cambiar el rol después.
+- La cuenta y el perfil se crean en la misma operación.
+- La respuesta (y la de `GET /api/v1/auth/me`) incluye `rol`, `nombre` y
+  `telefono`.
+
+### Cómo proteger una ruta por rol
+
+```ts
+import { Roles } from '@Auth/decorators';
+
+@Roles('ARRENDADOR')
+@Post()
+create() { ... }
+```
+
+- Sin sesión: **401** (lo responde `JwtAuthGuard`, que corre primero).
+- Con sesión pero con otro rol: **403**.
+- Sin `@Roles`, la ruta solo exige sesión, como antes.
+- El rol se lee de la base en cada request (el guard de JWT recarga el
+  usuario), nunca del token ni de lo que mande el cliente.
+
+### Pruebas
+
+- [`src/auth/guards/roles.guard.spec.ts`](../../src/auth/guards/roles.guard.spec.ts):
+  casos del guard (sin `@Roles`, rol permitido, varios roles, 403).
+- [`test/accounts.e2e-spec.ts`](../../test/accounts.e2e-spec.ts): registro de
+  cada rol, rechazo de `REVISOR`/`ADMIN`/vacío, validaciones de nombre y
+  teléfono, y `/auth/me`.
