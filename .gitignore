@@ -6,6 +6,9 @@
 # Cliente de Prisma generado (se recrea con el postinstall / `prisma generate`)
 /src/generated
 
+# Archivos subidos en desarrollo (UPLOADS_DIR)
+/uploads
+
 # TypeScript build cache
 *.tsbuildinfo
 
