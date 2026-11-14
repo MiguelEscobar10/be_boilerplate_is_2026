@@ -44,7 +44,9 @@ siempre traen el rol que eligieron al registrarse (BE-00.1).
 
 No se puede registrar por la API. `npm run db:seed` lo crea (o lo actualiza)
 con `revisor@example.com / Revisor1234!`, o con `SEED_REVIEWER_EMAIL` y
-`SEED_REVIEWER_PASSWORD` si están definidas.
+`SEED_REVIEWER_PASSWORD` si están definidas. En la demo desplegada
+(`NODE_ENV=production`) esas dos variables son obligatorias: si faltan, el
+seed se detiene para no publicar una contraseña conocida.
 
 ### Prueba de restricciones
 

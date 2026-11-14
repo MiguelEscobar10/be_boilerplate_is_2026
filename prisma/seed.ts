@@ -7,7 +7,18 @@ const DEMO_EMAIL = 'demo@example.com';
 const DEMO_PASSWORD = 'Demo1234!';
 
 // El rol REVISOR no se puede registrar por la API: solo existe si lo crea el
-// seed (sección 2.1). Se puede cambiar el acceso con variables de entorno.
+// seed (sección 2.1). En desarrollo hay un acceso por defecto; en un entorno
+// desplegado (NODE_ENV=production) hay que definir las dos variables, para no
+// dejar publicada una contraseña conocida.
+const isProduction = process.env.NODE_ENV === 'production';
+if (
+  isProduction &&
+  (!process.env.SEED_REVIEWER_EMAIL || !process.env.SEED_REVIEWER_PASSWORD)
+) {
+  throw new Error(
+    'En producción definí SEED_REVIEWER_EMAIL y SEED_REVIEWER_PASSWORD antes de correr el seed.',
+  );
+}
 const REVIEWER_EMAIL = process.env.SEED_REVIEWER_EMAIL ?? 'revisor@example.com';
 const REVIEWER_PASSWORD = process.env.SEED_REVIEWER_PASSWORD ?? 'Revisor1234!';
 
