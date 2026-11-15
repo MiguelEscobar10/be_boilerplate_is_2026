@@ -96,3 +96,46 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/si_be_boilerplate_te
   npx prisma migrate deploy
 npm run test:e2e
 ```
+
+## BE-01.1. Registro y consulta de publicaciones (MP4-33)
+
+### Endpoints
+
+| Método | Ruta | Sesión | Respuesta |
+|---|---|---|---|
+| `POST` | `/api/v1/publicaciones` | Sí, rol `ARRENDADOR` | `201 { id, tipo, nombre, activo }` |
+| `GET` | `/api/v1/publicaciones/{id}` | No | `200` con la publicación y sus imágenes en orden |
+| `GET` | `/api/v1/publicaciones/{id}/imagenes/{orden}` | No | `200` con la foto (`image/jpeg` o `image/png`) |
+
+El `POST` recibe `multipart/form-data` con `tipo`, `nombre`, `descripcion`,
+`ubicacion`, `tarifaMonto`, `tarifaUnidad`, `depositoMonto`, `condiciones` y
+las fotos en `imagenes` (también se acepta `imagenes[]`, que es como lo manda
+un `FormData` del frontend).
+
+### Validaciones
+
+- Campos: las de la tabla de DB-01.1, con mensajes en español para mostrarlos
+  tal cual en el formulario.
+- Fotos: de 1 a 10, JPG o PNG, máximo 5 MB cada una. El tipo se revisa por la
+  firma del archivo, no por la extensión ni por el `Content-Type`, así que un
+  PDF renombrado a `.jpg` se rechaza.
+- Todo error de datos o de archivos responde **400** y no deja nada guardado:
+  si el insert falla después de escribir fotos, se borran.
+- Una publicación desactivada responde **404**, igual que una que no existe.
+
+### Dónde quedan las fotos
+
+En la carpeta `UPLOADS_DIR` (por defecto `./uploads`, fuera de git), con
+nombre aleatorio: `listings/<uuid>.jpg`. En la base solo se guarda esa ruta
+relativa; la API nunca expone rutas del servidor.
+
+En Docker, `UPLOADS_DIR` es `/app/uploads`. El Dockerfile crea esa carpeta con
+dueño `node` (el contenedor no corre como root) y `docker-compose.yml` monta
+ahí el volumen `uploads`, para que las fotos sobrevivan cuando se recrea el
+contenedor. En la demo desplegada hay que montar un volumen o disco
+persistente en la misma ruta.
+
+### Permisos
+
+El `POST` lleva `@Roles('ARRENDADOR')` (Módulo 0, MP4-126): sin sesión
+responde 401 y con una cuenta de arrendatario o revisor responde 403.
