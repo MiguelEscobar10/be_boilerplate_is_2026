@@ -44,6 +44,7 @@ model User {
   notifications Notification[]
   listings      Listing[]
   profile       UserProfile?
+  reservations  Reservation[]
 
   conversationsAsTenant   Conversation[] @relation("ConversationTenant")
   conversationsAsLandlord Conversation[] @relation("ConversationLandlord")
@@ -155,8 +156,10 @@ model Listing {
   isActive   Boolean  @default(true) @map("is_active")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  images        ListingImage[]
-  conversations Conversation[]
+  images             ListingImage[]
+  conversations      Conversation[]
+  reservations       Reservation[]
+  availabilityBlocks AvailabilityBlock[]
 
   @@index([landlordId])
   @@map("listings")
@@ -251,4 +254,68 @@ model UserProfile {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("user_profiles")
+}
+
+// Estados de una reserva (sección 2.3 del documento de historias). Los valores
+// se quedan en español porque son los mismos que viajan en la API (`estado`).
+// CANCELADA está previsto en el modelo, pero ninguna historia lo produce.
+enum ReservationStatus {
+  PENDIENTE
+  CONFIRMADA
+  RECHAZADA
+  CANCELADA
+  EN_CURSO
+  COMPLETADA
+}
+
+// Solicitud de alquiler de una publicación para un período (H03). Una solicitud
+// PENDIENTE no ocupa fechas; CONFIRMADA y EN_CURSO sí. Ver docs/modulos/reservas.md.
+model Reservation {
+  id String @id @default(uuid()) @db.Uuid
+
+  // RESTRICT en las dos claves: la reserva es un registro del alquiler (pagos,
+  // garantía, mensajes y calificaciones cuelgan de ella) y no debe desaparecer
+  // si se borra la publicación o el arrendatario.
+  listingId String  @map("listing_id") @db.Uuid
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Restrict)
+
+  tenantId String @map("tenant_id") @db.Uuid
+  tenant   User   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  // Período solicitado, en UTC. El CHECK reservations_period_check exige
+  // start_at < end_at (la migración lo agrega porque Prisma no modela CHECK).
+  startAt DateTime          @map("start_at")
+  endAt   DateTime          @map("end_at")
+  status  ReservationStatus @default(PENDIENTE)
+
+  // Fotografía del precio al reservar: costo del alquiler y depósito, con dos
+  // decimales y sin valor por defecto, para que el servicio los copie siempre.
+  // CHECK >= 0 en la migración.
+  rentalCost    Decimal @map("rental_cost") @db.Decimal(12, 2)
+  depositAmount Decimal @map("deposit_amount") @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Búsqueda de solapamientos: reservas CONFIRMADA o EN_CURSO de una
+  // publicación que se cruzan con un rango.
+  @@index([listingId, status, startAt, endAt])
+  @@map("reservations")
+}
+
+// Período en el que el arrendador marca una publicación como no disponible
+// (H14). DB-14.1 completa la tabla con `created_by`, `created_at` y el índice
+// de traslapes. Ver docs/modulos/reservas.md.
+model AvailabilityBlock {
+  id String @id @default(uuid()) @db.Uuid
+
+  // CASCADE: un bloqueo no tiene sentido sin su publicación.
+  listingId String  @map("listing_id") @db.Uuid
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  // Período bloqueado, en UTC. CHECK start_at < end_at en la migración.
+  startAt DateTime @map("start_at")
+  endAt   DateTime @map("end_at")
+  reason  String?  @db.VarChar(200)
+
+  @@map("availability_blocks")
 }
