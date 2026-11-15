@@ -93,8 +93,8 @@ Agregar un módulo es una migración nueva con
 
 | Nombre | Regla | Error de Postgres |
 |---|---|---|
-| `notifications_title_length_check` | `char_length(btrim(title)) BETWEEN 1 AND 100` | 23514 |
-| `notifications_message_length_check` | `char_length(btrim(message)) BETWEEN 1 AND 500` | 23514 |
+| `notifications_title_length_check` | `char_length(btrim(title)) >= 1 AND char_length(title) <= 100` | 23514 |
+| `notifications_message_length_check` | `char_length(btrim(message)) >= 1 AND char_length(message) <= 500` | 23514 |
 | `notifications_reference_pair_check` | `(reference_type IS NULL) = (reference_id IS NULL)` | 23514 |
 | `notifications_dedupe_key` | Índice único sobre `(user_id, source_module, reference_type, reference_id, title)` `WHERE reference_id IS NOT NULL` | 23505 (Prisma `P2002`) |
 
@@ -112,8 +112,11 @@ Un `source_module` fuera del enum lo rechaza el tipo: error 22P02
   código de error (22001). Con CHECK, el mínimo y el máximo viven en un solo
   lugar y el nombre de la restricción dice cuál falló. `char_length` cuenta
   caracteres, no bytes.
-- **`btrim`: un texto de solo espacios cuenta como vacío.** El largo se mide
-  sin los espacios de los extremos, así que `'   '` se rechaza.
+- **Mínimo sin espacios, máximo con espacios.** El mínimo se mide con `btrim`
+  (sin los espacios de los extremos), así que `'   '` cuenta como vacío y se
+  rechaza. El máximo se mide sobre el texto completo: si también usara `btrim`,
+  un título `'a'` seguido de 200 espacios pasaría y quedaría guardado con 201
+  caracteres.
 - **Referencia completa o ninguna.** Un tipo sin id (o un id sin tipo) no
   identifica nada. Además, como Postgres trata los `NULL` como distintos en un
   índice único, una referencia con `reference_type` en `NULL` dejaría pasar
@@ -146,7 +149,8 @@ línea de la migración generada o declarar el índice con esa preview feature.
 [`test/notifications.constraints.e2e-spec.ts`](../../test/notifications.constraints.e2e-spec.ts)
 comprueba la FK, los `NOT NULL`, el borrado en cascada, las consultas de
 pendientes y recientes y que esas consultas usan el índice (DB-10.1). También
-el enum, los límites de largo (incluido texto de solo espacios), el CHECK de la
+el enum, los límites de largo (incluidos texto de solo espacios y espacios de
+relleno que pasan el máximo), el CHECK de la
 referencia y el índice contra duplicados (DB-20.1).
 
 Corre contra una **base de pruebas separada**, nunca contra la de desarrollo:
