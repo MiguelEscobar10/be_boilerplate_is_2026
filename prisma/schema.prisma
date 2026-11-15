@@ -62,6 +62,19 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
+// Módulo del proyecto que origina un aviso (DB-20.1). Un valor por módulo.
+enum ModuloOrigen {
+  CATALOGO
+  BUSQUEDA
+  RESERVAS
+  PAGOS_GARANTIA
+  MENSAJERIA
+  RESENAS
+  VERIFICACION
+  NOTIFICACIONES
+  REPORTES
+}
+
 // Aviso informativo para un usuario (H10). Lo registra el servicio de avisos
 // (H20) y se consulta desde la bandeja. Ver docs/modulos/notificaciones.md.
 model Notification {
@@ -70,15 +83,18 @@ model Notification {
   userId String @map("user_id") @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // TEXT hasta DB-20.1, que lo convierte al enum ModuloOrigen y agrega los
-  // límites de largo de title (1-100) y message (1-500).
-  sourceModule String @map("source_module")
+  sourceModule ModuloOrigen @map("source_module")
+  // CHECK notifications_title_length_check (escrito a mano en la migración de
+  // DB-20.1): entre 1 y 100 caracteres sin contar espacios de los extremos.
   title        String
+  // CHECK notifications_message_length_check: entre 1 y 500 caracteres sin
+  // contar espacios de los extremos.
   // Sin datos sensibles: nunca números de tarjeta, códigos ni contraseñas.
   message      String
 
   // Referencia opcional a la entidad que originó el aviso (p. ej. una reserva).
   // TEXT para no atarla al tipo de clave de ningún módulo.
+  // CHECK notifications_reference_pair_check: van las dos o ninguna.
   referenceType String? @map("reference_type")
   referenceId   String? @map("reference_id")
 
