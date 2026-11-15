@@ -171,3 +171,156 @@ npm run test:e2e
 Aplicar las migraciones sobre esa base vacía también sirve para validar que la
 migración funciona en una base limpia, sin `prisma migrate reset` sobre la base
 de desarrollo.
+
+## BE-20.1. Servicio de avisos (MP4-112)
+
+Servicio interno que registra avisos para los demás módulos del backend
+(historia H20). **No es un endpoint público:** el módulo no tiene controllers.
+El contrato publicado para el equipo, con ejemplos por módulo emisor, queda
+para BE-20.2 (`docs/contratos/servicio-avisos.md`).
+
+### Dónde vive y cómo se usa
+
+```
+src/notifications/
+  notifications.module.ts      exporta AvisosService
+  services/avisos.service.ts   notificar(aviso)
+  repositories/notification.repository.ts
+  errors/                      AvisoInvalidoError (+ errores internos del repositorio)
+  types/aviso.types.ts         Aviso, ReferenciaAviso, AvisoRegistrado, CampoAviso, ModuloOrigen
+```
+
+Alias `@Notifications` y `@Notifications/*`. Un módulo que necesita avisar
+importa `NotificationsModule` e inyecta `AvisosService`:
+
+```ts
+@Module({ imports: [NotificationsModule] /* ... */ })
+export class ReservasModule {}
+
+// en un servicio de ese módulo
+await this.avisos.notificar({
+  destinatarioId: reserva.arrendadorId,
+  titulo: 'Nueva solicitud de reserva',
+  mensaje: `Recibiste una solicitud de reserva para ${bien.nombre}.`,
+  moduloOrigen: ModuloOrigen.RESERVAS,
+  referencia: { tipo: 'reserva', id: reserva.id },
+});
+```
+
+### Contrato
+
+`notificar(aviso: Aviso): Promise<{ id: string }>`
+
+| Campo | Obligatorio | Regla |
+|---|---|---|
+| `destinatarioId` | sí | UUID de un usuario existente. |
+| `titulo` | sí | 1 a 100 caracteres después de recortar. |
+| `mensaje` | sí | 1 a 500 caracteres después de recortar. |
+| `moduloOrigen` | sí | Valor del enum `ModuloOrigen`. |
+| `referencia` | no | `{ tipo, id }`, los dos strings no vacíos. `undefined` o `null` = sin referencia. |
+
+Devuelve el `id` del aviso registrado, que queda como no leído
+(`read_at = NULL`). Si el aviso ya existía (ver *Duplicados*), devuelve el id
+del existente.
+
+### Errores
+
+Si el aviso no cumple el contrato lanza `AvisoInvalidoError` y **no registra
+nada**:
+
+```ts
+error.codigo  // 'AVISO_INVALIDO'
+error.campo   // el campo con error
+error.message // explicación en español
+```
+
+Se valida en el orden de la tabla y se reporta el primer campo con error.
+
+| `campo` | Cuándo |
+|---|---|
+| `destinatarioId` | Falta, no es string, no es UUID o el usuario no existe. |
+| `titulo` | Falta, no es string, queda vacío al recortar o pasa de 100. |
+| `mensaje` | Falta, no es string, queda vacío al recortar o pasa de 500. |
+| `moduloOrigen` | Falta o no está en `ModuloOrigen`. |
+| `referencia` | Viene pero no es un objeto. |
+| `referencia.tipo` / `referencia.id` | La referencia viene sin uno de los dos. |
+
+Es un error interno, no una excepción HTTP: cada módulo que llama decide qué
+hacer con él. Cualquier otro error (p. ej. la base caída) se propaga tal cual.
+
+### Decisiones
+
+- **Se guardan recortados.** Título, mensaje y referencia se guardan sin los
+  espacios de los extremos, y los largos se miden sobre el texto recortado.
+  Así `'Pago aprobado '` y `'Pago aprobado'` son el mismo aviso al deduplicar.
+- **El servicio repite los CHECK de DB-20.1** para dar un error claro con el
+  campo antes de llegar a la base. Es algo más estricto: `trim()` también quita
+  tabs y saltos de línea, mientras que `btrim` solo quita espacios. Los largos
+  se cuentan por caracteres (`Array.from`), igual que `char_length`; con
+  `.length` un emoji contaría como 2.
+- **El módulo de origen se valida en tiempo de ejecución.** El tipo
+  `ModuloOrigen` no protege a quien llama con un string cualquiera; sin esta
+  validación el error sería el 22P02 de Postgres.
+- **El destinatario lo valida la FK.** El servicio solo revisa que sea un UUID
+  (si no, Postgres daría un error de tipo). Que exista lo decide la FK a
+  `users`: el repositorio traduce el `P2003` y el servicio lanza
+  `AvisoInvalidoError` con `campo: 'destinatarioId'`. Consultar antes tendría
+  una carrera entre la lectura y el insert, y ataría este módulo a `UsersModule`.
+
+### Duplicados
+
+Si ya existe un aviso con el mismo destinatario, módulo, referencia y título,
+no se crea otro y se devuelve el id del existente. Avisar dos veces por el
+mismo evento es idempotente y quien llama no tiene que manejar nada. El
+`mensaje` no es parte de la clave.
+
+- **Se inserta sin consultar antes.** Si choca con el índice
+  `notifications_dedupe_key` (Prisma `P2002`), el servicio busca el aviso que
+  ocupa esa clave y devuelve su id. Con dos llamadas simultáneas, una inserta y
+  la otra cae en `P2002` y recupera el id de la primera.
+- **Cualquier `P2002` es un duplicado.** Fuera de la clave primaria (un uuid
+  generado), la única restricción única de `notifications` es
+  `notifications_dedupe_key`. No se lee `meta.target`, cuya forma cambia con el
+  driver adapter. Si no se encuentra el existente, se relanza el error.
+- **Sin referencia no se deduplica**, igual que el índice parcial: dos
+  "Mensaje nuevo" seguidos son dos avisos.
+- **Descartado:** `createManyAndReturn` con `skipDuplicates`
+  (`ON CONFLICT DO NOTHING`). Evita la excepción, pero ocultaría también
+  cualquier otra violación de unicidad y se aparta del patrón de
+  `UserRepository`.
+
+### Datos sensibles
+
+`titulo` y `mensaje` **nunca** deben incluir números de tarjeta, códigos de
+seguridad, números de documentos (DUI, NIT, pasaporte) ni contraseñas. **Los
+importes sí se permiten:** H05 pide el monto total en el aviso de pago.
+
+El servicio no lo valida: no hay una regla automática que distinga un número
+de documento de un dato legítimo sin rechazar avisos válidos. Lo garantiza
+quien llama, y la regla está en el JSDoc de `notificar` y del tipo `Aviso`.
+
+### Swagger y permisos
+
+No hay ruta, así que no hay nada que documentar en Swagger. El criterio de
+permisos se cumple porque el servicio no se puede llamar desde afuera: la
+prueba e2e verifica que `POST /api/v1/notificaciones` y `POST /api/v1/avisos`
+responden 404.
+
+### Pruebas
+
+- **Unitarias**
+  ([`src/notifications/services/avisos.service.spec.ts`](../../src/notifications/services/avisos.service.spec.ts),
+  `npm test`): validaciones, recorte, conteo de caracteres, traducción de
+  errores del repositorio y duplicados, con el repositorio simulado. En cada
+  caso de error verifican que no se llamó a la base.
+- **E2e**
+  ([`test/notifications.avisos.e2e-spec.ts`](../../test/notifications.avisos.e2e-spec.ts),
+  `npm run test:e2e`): el servicio real contra la base `_test`. Aviso válido
+  (no leído), sin referencia, sin destinatario, sin título, módulo inválido,
+  destinatario inexistente, referencia incompleta, duplicado, cinco llamadas
+  simultáneas que dejan un solo aviso, y el 404 de las rutas. En cada caso de
+  error comprueban con `count` que no se registró nada.
+
+Usa la misma base de pruebas que la prueba de restricciones, con el helper
+[`test/helpers/test-database.ts`](../../test/helpers/test-database.ts) (mismas
+salvaguardas: base local y nombre terminado en `_test`).
