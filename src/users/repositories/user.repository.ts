@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@Prisma/services';
 import { EmailAlreadyTakenError } from '@Users/errors';
-import { Prisma, type User } from '@PrismaClient';
+import {
+  Prisma,
+  type User,
+  type UserProfile,
+  type UserRole,
+} from '@PrismaClient';
 
 /** Código de Prisma para violación de restricción única. */
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
@@ -9,7 +14,12 @@ const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 export interface CreateUserData {
   email: string;
   passwordHash: string;
+  role?: UserRole;
+  /** Perfil que se crea junto con la cuenta (Módulo 0). */
+  profile?: { name: string; phone: string };
 }
+
+export type UserWithProfile = User & { profile: UserProfile | null };
 
 /**
  * Único punto del módulo que habla con la tabla `users`.
@@ -31,10 +41,22 @@ export class UserRepository {
    * insert. El código P2002 de Prisma se traduce a un error de dominio para
    * que la capa de servicio no tenga que conocer los códigos del ORM.
    */
-  async create({ email, passwordHash }: CreateUserData): Promise<User> {
+  async create({
+    email,
+    passwordHash,
+    role,
+    profile,
+  }: CreateUserData): Promise<UserWithProfile> {
     try {
+      // Cuenta y perfil en una sola operación: o se crean los dos o ninguno.
       return await this.prisma.user.create({
-        data: { email: this.normalizeEmail(email), passwordHash },
+        data: {
+          email: this.normalizeEmail(email),
+          passwordHash,
+          role,
+          profile: profile ? { create: profile } : undefined,
+        },
+        include: { profile: true },
       });
     } catch (error) {
       if (
@@ -47,8 +69,12 @@ export class UserRepository {
     }
   }
 
-  findById(id: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { id } });
+  /** Incluye el perfil: el guard lo usa en cada request y /auth/me lo devuelve. */
+  findById(id: string): Promise<UserWithProfile | null> {
+    return this.prisma.user.findUnique({
+      where: { id },
+      include: { profile: true },
+    });
   }
 
   findByEmail(email: string): Promise<User | null> {

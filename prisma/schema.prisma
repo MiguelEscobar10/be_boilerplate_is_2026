@@ -35,11 +35,15 @@ model User {
   email        String   @unique
   passwordHash String   @map("password_hash")
   isActive     Boolean  @default(true) @map("is_active")
+  // Rol de la cuenta (Módulo 0). Lo fija el registro; REVISOR solo por seed.
+  role         UserRole @default(ARRENDATARIO)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   refreshTokens RefreshToken[]
   notifications Notification[]
+  listings      Listing[]
+  profile       UserProfile?
 
   @@map("users")
 }
@@ -107,4 +111,90 @@ model Notification {
   // Bandeja de un usuario: pendientes (read_at IS NULL) y más recientes primero.
   @@index([userId, readAt, createdAt(sort: Desc)])
   @@map("notifications")
+}
+
+// Tipo de bien que se publica en el catálogo (H01).
+enum ListingType {
+  EQUIPO
+  ESPACIO
+}
+
+// Unidad en la que se cobra la tarifa de una publicación.
+enum RateUnit {
+  HORA
+  DIA
+  NOCHE
+  SEMANA
+}
+
+// Equipo o espacio publicado por un arrendador (H01). Ver docs/modulos/catalogo.md.
+model Listing {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Dueño de la publicación. RESTRICT: más adelante las reservas cuelgan de
+  // la publicación, así que no se borra junto con el usuario.
+  landlordId String @map("landlord_id") @db.Uuid
+  landlord   User   @relation(fields: [landlordId], references: [id], onDelete: Restrict)
+
+  type        ListingType
+  name        String      @db.VarChar(100)
+  description String?     @db.VarChar(1000)
+  location    String      @db.VarChar(200)
+
+  // Montos con dos decimales. Los CHECK (tarifa > 0, depósito >= 0) están
+  // en la migración porque Prisma no los modela.
+  rateAmount    Decimal  @map("rate_amount") @db.Decimal(12, 2)
+  rateUnit      RateUnit @map("rate_unit")
+  depositAmount Decimal  @default(0) @map("deposit_amount") @db.Decimal(12, 2)
+
+  conditions String?  @db.VarChar(1000)
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  images ListingImage[]
+
+  @@index([landlordId])
+  @@map("listings")
+}
+
+// Foto de una publicación, en el orden en que se muestra.
+model ListingImage {
+  id String @id @default(uuid()) @db.Uuid
+
+  listingId String  @map("listing_id") @db.Uuid
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  // Ruta privada en el almacenamiento o URL pública de la imagen.
+  path      String
+  position  Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([listingId, position])
+  @@map("listing_images")
+}
+
+// Roles del sistema (sección 2.1). ARRENDADOR y ARRENDATARIO se registran
+// solos; REVISOR revisa documentos de identidad (H07) y solo lo crea el seed.
+enum UserRole {
+  ARRENDADOR
+  ARRENDATARIO
+  REVISOR
+}
+
+// Datos personales de la cuenta. Separado de `users` para tocar lo menos
+// posible la tabla de la cátedra. Ver docs/modulos/cuentas.md.
+model UserProfile {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name  String @db.VarChar(100)
+  // Solo dígitos, de 8 a 15 (CHECK en la migración).
+  phone String @db.VarChar(20)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("user_profiles")
 }
