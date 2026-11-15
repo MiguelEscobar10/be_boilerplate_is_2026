@@ -256,6 +256,7 @@ describe('notifications: enum y restricciones (DB-20.1)', () => {
       ['vacío', ''],
       ['de solo espacios', '   '],
       ['de 101 caracteres', 'a'.repeat(101)],
+      ['que pasa de 100 con espacios de relleno', 'a' + ' '.repeat(200)],
     ])('rechaza un título %s', async (_, title) => {
       await expect(create({ title })).rejects.toThrow(/notifications_title_length_check/);
     });
@@ -263,6 +264,7 @@ describe('notifications: enum y restricciones (DB-20.1)', () => {
     it.each([
       ['de 1 carácter', 'a'],
       ['de 100 caracteres', 'a'.repeat(100)],
+      ['de 100 caracteres exactos contando espacios', 'a' + ' '.repeat(99)],
       ['de 100 caracteres con tilde (cuenta caracteres, no bytes)', 'ñ'.repeat(100)],
     ])('acepta un título %s', async (_, title) => {
       const n = await create({ title });
@@ -275,6 +277,7 @@ describe('notifications: enum y restricciones (DB-20.1)', () => {
       ['vacío', ''],
       ['de solo espacios', '   '],
       ['de 501 caracteres', 'a'.repeat(501)],
+      ['que pasa de 500 con espacios de relleno', 'a' + ' '.repeat(600)],
     ])('rechaza un mensaje %s', async (_, message) => {
       await expect(create({ message })).rejects.toThrow(/notifications_message_length_check/);
     });
@@ -282,6 +285,7 @@ describe('notifications: enum y restricciones (DB-20.1)', () => {
     it.each([
       ['de 1 carácter', 'a'],
       ['de 500 caracteres', 'a'.repeat(500)],
+      ['de 500 caracteres exactos contando espacios', 'a' + ' '.repeat(499)],
     ])('acepta un mensaje %s', async (_, message) => {
       const n = await create({ message });
       expect(n.message).toBe(message);
