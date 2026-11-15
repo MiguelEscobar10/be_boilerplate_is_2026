@@ -85,10 +85,11 @@ model Notification {
 
   sourceModule ModuloOrigen @map("source_module")
   // CHECK notifications_title_length_check (escrito a mano en la migración de
-  // DB-20.1): entre 1 y 100 caracteres sin contar espacios de los extremos.
+  // DB-20.1): al menos 1 carácter que no sea espacio y como máximo 100 en
+  // total, contando los espacios.
   title        String
-  // CHECK notifications_message_length_check: entre 1 y 500 caracteres sin
-  // contar espacios de los extremos.
+  // CHECK notifications_message_length_check: al menos 1 carácter que no sea
+  // espacio y como máximo 500 en total, contando los espacios.
   // Sin datos sensibles: nunca números de tarjeta, códigos ni contraseñas.
   message      String
 

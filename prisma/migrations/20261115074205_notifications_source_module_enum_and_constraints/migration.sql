@@ -16,13 +16,15 @@ ALTER TABLE "notifications"
   ALTER COLUMN "source_module" TYPE "ModuloOrigen"
   USING "source_module"::"ModuloOrigen";
 
--- Límites de largo. btrim: un texto de solo espacios cuenta como vacío.
+-- Límites de largo. El mínimo se mide sin los espacios de los extremos (btrim),
+-- así un texto de solo espacios cuenta como vacío. El máximo se mide sobre el
+-- texto completo, así los espacios de relleno no permiten pasarse del límite.
 -- char_length cuenta caracteres, no bytes.
 ALTER TABLE "notifications"
   ADD CONSTRAINT "notifications_title_length_check"
-    CHECK (char_length(btrim("title")) BETWEEN 1 AND 100),
+    CHECK (char_length(btrim("title")) >= 1 AND char_length("title") <= 100),
   ADD CONSTRAINT "notifications_message_length_check"
-    CHECK (char_length(btrim("message")) BETWEEN 1 AND 500),
+    CHECK (char_length(btrim("message")) >= 1 AND char_length("message") <= 500),
   -- La referencia va completa (tipo e id) o no va.
   ADD CONSTRAINT "notifications_reference_pair_check"
     CHECK (("reference_type" IS NULL) = ("reference_id" IS NULL));
