@@ -15,13 +15,21 @@ evidencia del trabajo: si algo se hace fuera de este flujo, no queda registrado.
 
 ## El flujo de una task
 
+Estados del tablero: **Tareas por hacer**, **En curso**, **En revisión**,
+**Control de calidad** y **Finalizada**. Entre paréntesis va el nombre de la
+columna, por si alguien tiene Jira en otro idioma.
+
 | Paso | Jira | GitHub |
 |---|---|---|
-| 1. Arrancás | Mové la task a **En Progreso** | `git fetch && git checkout <tu rama>` |
+| 1. Arrancás | Mové la task a **En curso** (En Progreso) | `git fetch && git checkout <tu rama>` |
 | 2. Trabajás | | Commits chicos, uno por paso lógico |
-| 3. Terminás | Mové a **Code Review**, comentá con el link del PR y registrá tus horas (*Log work*) | Abrí el PR con la clave en el título y asigná revisor |
-| 4. Te aprueban | Mové a **QA** | Merge a `main` (respetando el orden si hay PR encadenados) |
-| 5. Pasa la prueba | Mové a **Hecho** | |
+| 3. Terminás | Mové a **En revisión** (Code Review), comentá con el link del PR y registrá tus horas (*Log work*) | Abrí el PR con la clave en el título y asigná revisor |
+| 4. Te aprueban y se hace el merge | Mové a **Finalizada** (Hecho) | Merge a `main` (respetando el orden si hay PR encadenados) |
+
+**Control de calidad** (QA) es solo para las tasks de pruebas (QA-xx): la task
+de pruebas pasa por ahí mientras se ejecutan los casos y queda en
+**Finalizada** cuando pasan. Las tasks de desarrollo (DB, BE, FE) no pasan
+por esa columna.
 
 ## Commits
 
@@ -69,4 +77,4 @@ historia: modelo de datos, endpoints, decisiones y su justificación.
 | 3 | jue 19 a vie 20 | Módulos restantes, documentación, despliegue y entrega del repo |
 | 4 | sáb 21 a lun 23 | Plan de pruebas y QA pendiente |
 
-Al cerrar un sprint, lo que no esté en **Hecho** pasa al siguiente.
+Al cerrar un sprint, lo que no esté en **Finalizada** pasa al siguiente.
