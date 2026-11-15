@@ -35,12 +35,15 @@ model User {
   email        String   @unique
   passwordHash String   @map("password_hash")
   isActive     Boolean  @default(true) @map("is_active")
+  // Rol de la cuenta (Módulo 0). Lo fija el registro; REVISOR solo por seed.
+  role         UserRole @default(ARRENDATARIO)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   refreshTokens RefreshToken[]
   notifications Notification[]
   listings      Listing[]
+  profile       UserProfile?
 
   @@map("users")
 }
@@ -151,4 +154,30 @@ model ListingImage {
 
   @@unique([listingId, position])
   @@map("listing_images")
+}
+
+// Roles del sistema (sección 2.1). ARRENDADOR y ARRENDATARIO se registran
+// solos; REVISOR revisa documentos de identidad (H07) y solo lo crea el seed.
+enum UserRole {
+  ARRENDADOR
+  ARRENDATARIO
+  REVISOR
+}
+
+// Datos personales de la cuenta. Separado de `users` para tocar lo menos
+// posible la tabla de la cátedra. Ver docs/modulos/cuentas.md.
+model UserProfile {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name  String @db.VarChar(100)
+  // Solo dígitos, de 8 a 15 (CHECK en la migración).
+  phone String @db.VarChar(20)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("user_profiles")
 }

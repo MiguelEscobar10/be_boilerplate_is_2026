@@ -289,7 +289,7 @@ Base: `http://localhost:3000/api/v1` · Documentación interactiva: `http://loca
 | Método | Ruta | Auth | Código | Descripción |
 |---|---|---|---|---|
 | `GET` | `/` | — | `200` | Health check |
-| `POST` | `/users` | — | `201` | Registra un usuario con email y contraseña |
+| `POST` | `/users` | — | `201` | Registra una cuenta de arrendador o arrendatario (email, contraseña, rol, nombre y teléfono) |
 | `POST` | `/auth/login` | — | `200` | Inicia sesión con email y contraseña |
 | `POST` | `/auth/refresh` | — | `200` | Renueva el par de tokens |
 | `POST` | `/auth/logout` | — | `204` | Cierra la sesión |
@@ -306,7 +306,7 @@ BASE=http://localhost:3000/api/v1
 ```bash
 curl -X POST $BASE/users \
   -H 'Content-Type: application/json' \
-  -d '{"email":"nestor@example.com","password":"Str0ngPass"}'
+  -d '{"email":"nestor@example.com","password":"Str0ngPass","rol":"ARRENDADOR","nombre":"Néstor","telefono":"70001234"}'
 ```
 
 ```jsonc

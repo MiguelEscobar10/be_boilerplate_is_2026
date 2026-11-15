@@ -1,7 +1,7 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import bcrypt from 'bcrypt';
-import { UserRepository } from '@Users/repositories';
+import { UserRepository, type UserWithProfile } from '@Users/repositories';
 import { EmailAlreadyTakenError } from '@Users/errors';
 import type { CreateUserDto } from '@Users/dto';
 import type { EnvConfig } from '@Config';
@@ -23,11 +23,22 @@ export class UsersService {
     this.saltRounds = configService.get('BCRYPT_SALT_ROUNDS', { infer: true });
   }
 
-  async create({ email, password }: CreateUserDto): Promise<User> {
+  async create({
+    email,
+    password,
+    rol,
+    nombre,
+    telefono,
+  }: CreateUserDto): Promise<UserWithProfile> {
     const passwordHash = await this.hashPassword(password);
 
     try {
-      return await this.userRepository.create({ email, passwordHash });
+      return await this.userRepository.create({
+        email,
+        passwordHash,
+        role: rol,
+        profile: { name: nombre, phone: telefono },
+      });
     } catch (error) {
       // Traduce el error de dominio del repositorio a una excepción HTTP.
       if (error instanceof EmailAlreadyTakenError) {
@@ -41,7 +52,7 @@ export class UsersService {
     return this.userRepository.findByEmail(email);
   }
 
-  findById(id: string): Promise<User | null> {
+  findById(id: string): Promise<UserWithProfile | null> {
     return this.userRepository.findById(id);
   }
 
