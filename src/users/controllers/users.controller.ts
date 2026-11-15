@@ -1,5 +1,6 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiOperation,
@@ -20,9 +21,12 @@ export class UsersController {
    */
   @Public()
   @Post()
-  @ApiOperation({ summary: 'Registra un nuevo usuario' })
+  @ApiOperation({ summary: 'Registra una cuenta de arrendador o arrendatario' })
   @ApiCreatedResponse({ type: UserResponseDto })
-  @ApiConflictResponse({ description: 'El nombre de usuario ya está en uso.' })
+  @ApiConflictResponse({ description: 'El email ya está registrado.' })
+  @ApiBadRequestResponse({
+    description: 'Datos inválidos o rol no permitido (ROL_NO_PERMITIDO).',
+  })
   async create(@Body() dto: CreateUserDto): Promise<UserResponseDto> {
     const user = await this.usersService.create(dto);
     return UserResponseDto.fromEntity(user);
