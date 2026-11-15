@@ -30,7 +30,10 @@ export class BandejaService {
       userId,
       { unreadOnly: soloNoLeidas, skip: (page - 1) * limit, take: limit },
     );
-    return { items: items.map(NotificacionResponseDto.fromEntity), total };
+    return {
+      items: items.map((item) => NotificacionResponseDto.fromEntity(item)),
+      total,
+    };
   }
 
   /**
