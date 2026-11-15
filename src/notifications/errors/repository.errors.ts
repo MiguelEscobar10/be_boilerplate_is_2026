@@ -6,7 +6,9 @@
 /** Ya existe un aviso con el mismo destinatario, módulo, referencia y título. */
 export class AvisoDuplicadoError extends Error {
   constructor() {
-    super('Ya existe un aviso con el mismo destinatario, módulo, referencia y título.');
+    super(
+      'Ya existe un aviso con el mismo destinatario, módulo, referencia y título.',
+    );
     this.name = 'AvisoDuplicadoError';
   }
 }

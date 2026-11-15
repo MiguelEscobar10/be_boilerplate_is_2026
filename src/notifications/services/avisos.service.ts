@@ -32,7 +32,9 @@ interface AvisoNormalizado {
  */
 @Injectable()
 export class AvisosService {
-  constructor(private readonly notificationRepository: NotificationRepository) {}
+  constructor(
+    private readonly notificationRepository: NotificationRepository,
+  ) {}
 
   /**
    * Registra un aviso para su destinatario, como no leído.
@@ -65,7 +67,10 @@ export class AvisosService {
       });
     } catch (error) {
       if (error instanceof DestinatarioInexistenteError) {
-        throw new AvisoInvalidoError('destinatarioId', 'El destinatario no existe.');
+        throw new AvisoInvalidoError(
+          'destinatarioId',
+          'El destinatario no existe.',
+        );
       }
       if (error instanceof AvisoDuplicadoError && datos.referencia) {
         // Otro llamado registró el mismo aviso antes (o al mismo tiempo):
@@ -100,11 +105,24 @@ export class AvisosService {
       throw invalido('destinatarioId', 'El destinatario debe ser un UUID.');
     }
 
-    const titulo = this.validarLargo(entrada.titulo, 'titulo', 'El título', TITULO_MAX);
-    const mensaje = this.validarLargo(entrada.mensaje, 'mensaje', 'El mensaje', MENSAJE_MAX);
+    const titulo = this.validarLargo(
+      entrada.titulo,
+      'titulo',
+      'El título',
+      TITULO_MAX,
+    );
+    const mensaje = this.validarLargo(
+      entrada.mensaje,
+      'mensaje',
+      'El mensaje',
+      MENSAJE_MAX,
+    );
 
     const moduloOrigen = entrada.moduloOrigen;
-    if (typeof moduloOrigen !== 'string' || !MODULOS_ORIGEN.includes(moduloOrigen)) {
+    if (
+      typeof moduloOrigen !== 'string' ||
+      !MODULOS_ORIGEN.includes(moduloOrigen)
+    ) {
       throw invalido(
         'moduloOrigen',
         `El módulo de origen debe ser uno de: ${MODULOS_ORIGEN.join(', ')}.`,
@@ -133,7 +151,10 @@ export class AvisosService {
     // Cuenta caracteres (code points), como char_length en Postgres. Con
     // .length un emoji contaría como 2.
     if (Array.from(recortado).length > max) {
-      throw invalido(campo, `${nombre} no puede superar los ${max} caracteres.`);
+      throw invalido(
+        campo,
+        `${nombre} no puede superar los ${max} caracteres.`,
+      );
     }
     return recortado;
   }
@@ -142,7 +163,10 @@ export class AvisosService {
   private validarReferencia(valor: unknown): AvisoNormalizado['referencia'] {
     if (valor === undefined || valor === null) return null;
     if (typeof valor !== 'object') {
-      throw invalido('referencia', 'La referencia debe ser un objeto { tipo, id }.');
+      throw invalido(
+        'referencia',
+        'La referencia debe ser un objeto { tipo, id }.',
+      );
     }
 
     const { tipo, id } = valor as Record<string, unknown>;
