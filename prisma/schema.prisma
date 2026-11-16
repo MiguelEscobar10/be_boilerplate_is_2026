@@ -44,9 +44,11 @@ model User {
   notifications       Notification[]
   listings            Listing[]
   profile             UserProfile?
-  reservations        Reservation[]  @relation("ReservationTenant")
+  reservations        Reservation[]       @relation("ReservationTenant")
   // Reservas que este usuario aprobó o rechazó como arrendador (DB-04.1).
-  decidedReservations Reservation[]  @relation("ReservationDecidedBy")
+  decidedReservations Reservation[]       @relation("ReservationDecidedBy")
+  // Bloqueos de fechas que este usuario creó como arrendador (DB-14.1).
+  availabilityBlocks  AvailabilityBlock[]
 
   conversationsAsTenant   Conversation[] @relation("ConversationTenant")
   conversationsAsLandlord Conversation[] @relation("ConversationLandlord")
@@ -317,8 +319,8 @@ model Reservation {
 }
 
 // Período en el que el arrendador marca una publicación como no disponible
-// (H14). DB-14.1 completa la tabla con `created_by`, `created_at` y el índice
-// de traslapes. Ver docs/modulos/reservas.md.
+// (H14). La tabla nace en DB-03.1 y DB-14.1 la completa con `created_by`,
+// `created_at` y el índice de traslapes. Ver docs/modulos/reservas.md.
 model AvailabilityBlock {
   id String @id @default(uuid()) @db.Uuid
 
@@ -329,8 +331,19 @@ model AvailabilityBlock {
   // Período bloqueado, en UTC. CHECK start_at < end_at en la migración.
   startAt DateTime @map("start_at")
   endAt   DateTime @map("end_at")
+  // CHECK availability_blocks_reason_check (a mano en la migración de
+  // DB-14.1): si viene, debe tener algún carácter que no sea espacio en blanco.
   reason  String?  @db.VarChar(200)
 
+  // Arrendador que creó el bloqueo. NULL solo en filas que no pasaron por
+  // BE-14.1 (pruebas de otros módulos); el servicio lo guarda siempre.
+  // RESTRICT, como el dueño de la publicación.
+  createdById String?  @map("created_by") @db.Uuid
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Bloqueos de una publicación que se cruzan con un rango.
+  @@index([listingId, startAt, endAt])
   @@map("availability_blocks")
 }
 
