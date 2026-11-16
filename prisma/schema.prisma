@@ -40,15 +40,19 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  refreshTokens       RefreshToken[]
-  notifications       Notification[]
-  listings            Listing[]
-  profile             UserProfile?
-  reservations        Reservation[]       @relation("ReservationTenant")
+  refreshTokens         RefreshToken[]
+  notifications         Notification[]
+  listings              Listing[]
+  profile               UserProfile?
+  reservations          Reservation[]       @relation("ReservationTenant")
   // Reservas que este usuario aprobó o rechazó como arrendador (DB-04.1).
-  decidedReservations Reservation[]       @relation("ReservationDecidedBy")
+  decidedReservations   Reservation[]       @relation("ReservationDecidedBy")
   // Bloqueos de fechas que este usuario creó como arrendador (DB-14.1).
-  availabilityBlocks  AvailabilityBlock[]
+  availabilityBlocks    AvailabilityBlock[]
+  // Calificaciones de arrendatario (DB-18.1): las que escribió como
+  // arrendador y las que recibió como arrendatario.
+  tenantRatingsWritten  TenantRating[]      @relation("TenantRatingAuthor")
+  tenantRatingsReceived TenantRating[]      @relation("TenantRatingTenant")
 
   conversationsAsTenant   Conversation[] @relation("ConversationTenant")
   conversationsAsLandlord Conversation[] @relation("ConversationLandlord")
@@ -311,6 +315,7 @@ model Reservation {
   rejectionReason String?   @map("rejection_reason") @db.VarChar(500)
 
   simulatedPayments SimulatedPayment[]
+  tenantRating      TenantRating?
 
   // Búsqueda de solapamientos: reservas CONFIRMADA o EN_CURSO de una
   // publicación que se cruzan con un rango.
@@ -391,4 +396,36 @@ model SimulatedPayment {
   // Historial de intentos de una reserva, más recientes primero.
   @@index([reservationId, createdAt(sort: Desc), id(sort: Desc)])
   @@map("simulated_payments")
+}
+
+// Calificación que el arrendador le da al arrendatario de una reserva
+// COMPLETADA (H18). Una sola por reserva. Ver docs/modulos/resenas.md.
+model TenantRating {
+  id String @id @default(uuid()) @db.Uuid
+
+  // UNIQUE: una reserva se califica una sola vez. RESTRICT, como todo lo que
+  // cuelga de la reserva.
+  reservationId String      @unique @map("reservation_id") @db.Uuid
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+
+  // Arrendador que califica.
+  authorId String @map("author_id") @db.Uuid
+  author   User   @relation("TenantRatingAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  // Arrendatario calificado. Se guarda aquí, además de en la reserva, para
+  // listar las calificaciones de una persona sin pasar por sus reservas.
+  tenantId String @map("tenant_id") @db.Uuid
+  tenant   User   @relation("TenantRatingTenant", fields: [tenantId], references: [id], onDelete: Restrict)
+
+  // CHECK tenant_ratings_score_check (a mano en la migración): de 1 a 5.
+  score   Int     @db.SmallInt
+  // CHECK tenant_ratings_comment_check: si viene, con algún carácter que no
+  // sea espacio en blanco.
+  comment String? @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Calificaciones recibidas por un arrendatario, más recientes primero.
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("tenant_ratings")
 }
