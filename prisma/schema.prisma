@@ -357,10 +357,6 @@ model SimulatedPayment {
   // CHECK: de 1 a 3. Único por reserva.
   attemptNumber   Int     @map("attempt_number")
 
-  // Recibo que ve el arrendatario: PAG-AAAAMMDD-NNNN (CHECK de formato).
-  // Lo genera BE-05.1 en cada intento, que también garantiza el consecutivo.
-  transactionNumber String @unique @map("transaction_number") @db.VarChar(20)
-
   createdAt DateTime @default(now()) @map("created_at")
 
   // Índice único parcial (reservation_id) WHERE status = 'APROBADO': escrito a

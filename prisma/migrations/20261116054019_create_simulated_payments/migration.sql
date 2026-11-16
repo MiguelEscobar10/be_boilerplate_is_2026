@@ -15,14 +15,10 @@ CREATE TABLE "simulated_payments" (
     "card_last4" CHAR(4) NOT NULL,
     "rejection_reason" VARCHAR(200),
     "attempt_number" INTEGER NOT NULL,
-    "transaction_number" VARCHAR(20) NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "simulated_payments_pkey" PRIMARY KEY ("id")
 );
-
--- CreateIndex
-CREATE UNIQUE INDEX "simulated_payments_transaction_number_key" ON "simulated_payments"("transaction_number");
 
 -- CreateIndex
 CREATE INDEX "simulated_payments_reservation_id_created_at_id_idx" ON "simulated_payments"("reservation_id", "created_at" DESC, "id" DESC);
@@ -51,12 +47,6 @@ ALTER TABLE "simulated_payments"
 -- Solo los últimos 4 dígitos de la tarjeta; nunca el número completo ni el CVV.
 ALTER TABLE "simulated_payments"
   ADD CONSTRAINT "simulated_payments_card_last4_check" CHECK ("card_last4" ~ '^[0-9]{4}$');
-
--- Recibo PAG-AAAAMMDD-NNNN. Lo genera BE-05.1, que también garantiza que la
--- fecha sea válida y el consecutivo del día no se repita.
-ALTER TABLE "simulated_payments"
-  ADD CONSTRAINT "simulated_payments_transaction_number_format_check"
-    CHECK ("transaction_number" ~ '^PAG-[0-9]{8}-[0-9]{4}$');
 
 -- El motivo es obligatorio y no vacío si el intento fue RECHAZADO, y NULL en
 -- los demás estados.

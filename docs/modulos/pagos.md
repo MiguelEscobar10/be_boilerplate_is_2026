@@ -25,7 +25,6 @@ Migración
 | `card_last4` | `CHAR(4)` | no | Últimos 4 dígitos de la tarjeta. `CHECK (card_last4 ~ '^[0-9]{4}$')`. |
 | `rejection_reason` | `VARCHAR(200)` | sí | Motivo del rechazo. Obligatorio y no vacío si `RECHAZADO`; `NULL` en los demás estados. |
 | `attempt_number` | `INTEGER` | no | Número de intento dentro de la reserva. `CHECK (BETWEEN 1 AND 3)`. |
-| `transaction_number` | `VARCHAR(20)` | no | Recibo `PAG-AAAAMMDD-NNNN`. `UNIQUE` y `CHECK` de formato. |
 | `created_at` | `TIMESTAMP(3)` | no | Fecha del intento, en UTC. |
 
 **Enum `SimulatedPaymentStatus`**: `PENDIENTE`, `APROBADO`, `RECHAZADO`. Los
@@ -50,9 +49,7 @@ La tabla `reservations` no cambia: la relación inversa
 | `simulated_payments_total_matches_parts_check` | CHECK | `total_amount = rental_cost + deposit_amount` |
 | `simulated_payments_attempt_number_check` | CHECK | `attempt_number BETWEEN 1 AND 3` |
 | `simulated_payments_card_last4_check` | CHECK | `card_last4 ~ '^[0-9]{4}$'` |
-| `simulated_payments_transaction_number_format_check` | CHECK | `transaction_number ~ '^PAG-[0-9]{8}-[0-9]{4}$'` |
 | `simulated_payments_rejection_reason_check` | CHECK | `RECHAZADO` con motivo no vacío; los demás estados con `NULL`. |
-| `simulated_payments_transaction_number_key` | UNIQUE | Un número de transacción no se repite en toda la tabla. |
 | `simulated_payments_reservation_id_attempt_number_key` | UNIQUE | Un número de intento no se repite dentro de una reserva. |
 | `simulated_payments_one_approved_per_reservation_key` | UNIQUE parcial | `(reservation_id) WHERE status = 'APROBADO'`: un solo pago aprobado por reserva. |
 | `simulated_payments_reservation_id_created_at_id_idx` | Índice | `(reservation_id, created_at DESC, id DESC)`: historial de intentos, el más reciente primero. |
@@ -75,7 +72,6 @@ desde el schema.
 | `tarjeta_ultimos4` | `card_last4` | `cardLast4` |
 | `motivo_rechazo` | `rejection_reason` | `rejectionReason` |
 | `numero_intento` | `attempt_number` | `attemptNumber` |
-| `numero_transaccion` | `transaction_number` | `transactionNumber` |
 | `created_at` | `created_at` | `createdAt` |
 
 ### Decisiones
@@ -106,28 +102,10 @@ desde el schema.
 - **Sin triggers.** Todo lo que se valida en la base es declarativo (`CHECK`,
   `UNIQUE`, FK). Las reglas que dependen de otras tablas quedan en el servicio.
 
-### Número de transacción (lo genera BE-05.1)
-
-Esta task solo crea la columna `transaction_number` con sus restricciones:
-`NOT NULL`, `UNIQUE` y el formato `PAG-AAAAMMDD-NNNN` (`PAG-`, 8 dígitos de
-fecha, guion y 4 dígitos de consecutivo). La base **no** genera el número.
-
-**BE-05.1** es responsable de:
-
-- generarlo en el servidor en **cada** intento, también en los rechazados;
-- que `AAAAMMDD` sea una fecha válida (el `CHECK` solo exige 8 dígitos);
-- garantizar el consecutivo `NNNN` del día sin huecos ni repetidos cuando
-  llegan pagos a la vez (por ejemplo, con una secuencia por día o calculándolo
-  dentro de la transacción con bloqueo). Si dos pagos calculan el mismo
-  número, el `UNIQUE` hace fallar al segundo, y BE-05.1 debe reintentar.
-
-Es el recibo que ve el arrendatario (H05 y H06).
-
 ### Qué queda para otras tasks
 
-- **BE-05.1:** generar `transaction_number` y su consecutivo, validar la
-  tarjeta de prueba, copiar los importes de la reserva y calcular el
-  `attempt_number` siguiente.
+- **BE-05.1:** validar la tarjeta de prueba, copiar los importes de la
+  reserva y calcular el `attempt_number` siguiente.
 
 ### Prueba de restricciones
 
@@ -136,8 +114,7 @@ comprueba cada restricción de la tabla: la FK, los importes negativos y en
 cero, el total incoherente, los intentos 0 y 4 (y 1 a 3 válidos), el intento
 repetido, el segundo `APROBADO` por reserva, que varios `RECHAZADO` convivan
 con el `APROBADO` final, la tarjeta con letras, espacios, 3 y 5 dígitos, el
-número de transacción con formato inválido y repetido, el motivo según el
-estado, la existencia de los índices y el `RESTRICT` al borrar la reserva. Al
+motivo según el estado, la existencia de los índices y el `RESTRICT` al borrar la reserva. Al
 terminar borra los pagos, reservas, publicación y usuarios que creó.
 
 Corre contra la misma base de pruebas que las demás:

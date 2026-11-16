@@ -46,7 +46,6 @@ type PaymentData = {
   cardLast4?: string;
   rejectionReason?: string | null;
   attemptNumber?: number;
-  transactionNumber?: string;
 };
 
 describe('pagos simulados: restricciones (DB-05.1)', () => {
@@ -56,13 +55,6 @@ describe('pagos simulados: restricciones (DB-05.1)', () => {
   let listingId: string;
   let reservationId: string;
   let otherReservationId: string;
-
-  // Números de transacción únicos por corrida: la columna es UNIQUE en toda la
-  // tabla y la base _test la comparten otras pruebas.
-  let counter = 0;
-  const runTag = String(Math.floor(Math.random() * 1e8)).padStart(8, '0');
-  const nextTransactionNumber = () =>
-    `PAG-${runTag}-${String(++counter).padStart(4, '0')}`;
 
   const newUser = (name: string) =>
     prisma.user.create({
@@ -93,7 +85,6 @@ describe('pagos simulados: restricciones (DB-05.1)', () => {
         cardLast4: data.cardLast4 ?? '4242',
         rejectionReason: data.rejectionReason,
         attemptNumber: data.attemptNumber ?? 1,
-        transactionNumber: data.transactionNumber ?? nextTransactionNumber(),
       },
     });
 
@@ -269,33 +260,6 @@ describe('pagos simulados: restricciones (DB-05.1)', () => {
     await expect(newPayment({ cardLast4: '42424' })).rejects.toMatchObject({
       code: 'P2000',
     });
-  });
-
-  it.each([
-    ['sin prefijo', '20261115-0001'],
-    ['con prefijo en minúsculas', 'pag-20261115-0001'],
-    ['con otro prefijo', 'PGO-20261115-0001'],
-    ['con 7 dígitos de fecha', 'PAG-2026111-0001'],
-    ['con 3 dígitos de consecutivo', 'PAG-20261115-001'],
-    ['con 5 dígitos de consecutivo', 'PAG-20261115-00001'],
-    ['sin guiones', 'PAG202611150001'],
-    ['con letras en la fecha', 'PAG-2026111A-0001'],
-  ])(
-    'rechaza un número de transacción %s',
-    async (_case, transactionNumber) => {
-      await expect(newPayment({ transactionNumber })).rejects.toThrow(
-        /simulated_payments_transaction_number_format_check/,
-      );
-    },
-  );
-
-  it('rechaza un número de transacción repetido', async () => {
-    const transactionNumber = nextTransactionNumber();
-    await newPayment({ attemptNumber: 1, transactionNumber });
-
-    await expect(
-      newPayment({ attemptNumber: 2, transactionNumber }),
-    ).rejects.toMatchObject({ code: 'P2002' });
   });
 
   it('exige motivo en un RECHAZADO', async () => {
