@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from '@Auth';
 import { JwtAuthGuard, RolesGuard } from '@Auth/guards';
+import { AvailabilityModule } from '@Availability';
 import { HealthModule } from '@Health';
 import { ListingsModule } from '@Listings';
 import { MessagingModule } from '@Messaging';
@@ -24,6 +25,7 @@ import { validateEnv } from '@Config';
     UsersModule,
     AuthModule,
     ListingsModule,
+    AvailabilityModule,
     NotificationsModule,
     MessagingModule,
   ],
