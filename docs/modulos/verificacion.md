@@ -1,0 +1,122 @@
+# Módulo 7: Verificación de identidad y documentos
+
+Solicitudes con las que un arrendatario envía su documento de identidad para
+que lo revise el usuario REVISOR (historia H07), y la opción con la que el
+arrendador exige verificación para rentar un bien (H19). Una persona está
+verificada cuando tiene alguna solicitud `APROBADA`.
+
+## DB-07.1. Solicitudes de verificación de identidad (MP4-97)
+
+### Modelo de datos
+
+Migración
+[`20261116075258_create_identity_verifications`](../../prisma/migrations/20261116075258_create_identity_verifications/migration.sql).
+
+**Tabla `identity_verifications`** (modelo Prisma `IdentityVerification`)
+
+| Columna | Tipo | Nulo | Descripción |
+|---|---|---|---|
+| `id` | `UUID` | no | Clave primaria, generada por Prisma (`uuid()`). |
+| `user_id` | `UUID` | no | Arrendatario que envía el documento. FK a `users.id`, `ON DELETE CASCADE`. |
+| `document_key` | `VARCHAR(255)` | no | Ruta privada del documento en el almacenamiento. No es una URL pública. `CHECK` de al menos un carácter que no sea espacio. |
+| `status` | `IdentityVerificationStatus` | no | Estado de la solicitud. `PENDIENTE` por defecto. |
+| `rejection_reason` | `VARCHAR(500)` | sí | Motivo que escribe el REVISOR al rechazar (opcional). Solo en `RECHAZADA`. |
+| `reviewed_by` | `UUID` | sí | REVISOR que decidió. FK a `users.id`, `ON DELETE RESTRICT`. |
+| `reviewed_at` | `TIMESTAMP(3)` | sí | Fecha de la decisión, en UTC. No puede ser anterior a `submitted_at`. |
+| `submitted_at` | `TIMESTAMP(3)` | no | Fecha de envío, en UTC. `now()` por defecto. |
+
+**Enum `IdentityVerificationStatus`**: `PENDIENTE`, `APROBADA`, `RECHAZADA`
+(sección 2.3 del documento de historias). Los valores se quedan en español
+porque son los mismos que viajan en la API (`estado`).
+
+**Índices**
+
+| Índice | Columnas | Para qué |
+|---|---|---|
+| `identity_verifications_user_id_submitted_at_idx` | `(user_id, submitted_at DESC)` | La última solicitud del usuario (`GET /usuarios/me/verificaciones/ultima`, BE-07.1). |
+| `identity_verifications_status_submitted_at_idx` | `(status, submitted_at)` | La cola del REVISOR: solicitudes `PENDIENTE` en orden de llegada (BE-07.2). |
+| `identity_verifications_one_pending_per_user_key` | `(user_id) WHERE status = 'PENDIENTE'` | Único parcial: una sola solicitud `PENDIENTE` por usuario. |
+
+**Restricciones `CHECK`** (escritas a mano al final de la migración)
+
+| Nombre | Regla |
+|---|---|
+| `identity_verifications_document_key_check` | `document_key` tiene algún carácter que no es espacio en blanco. |
+| `identity_verifications_review_check` | En `PENDIENTE`, `reviewed_by` y `reviewed_at` son `NULL`; en `APROBADA` o `RECHAZADA`, los dos están presentes. |
+| `identity_verifications_reviewer_not_owner_check` | `reviewed_by <> user_id`: nadie decide su propia solicitud. |
+| `identity_verifications_rejection_reason_check` | El motivo es `NULL`, o la solicitud está `RECHAZADA` y el motivo tiene algún carácter que no es espacio en blanco. |
+| `identity_verifications_reviewed_at_check` | `reviewed_at >= submitted_at`. |
+
+La tabla `users` no cambia: las relaciones inversas
+(`User.identityVerifications` y `User.reviewedIdentityVerifications`) existen
+solo en el cliente de Prisma.
+
+### Equivalencias con el brief
+
+| Brief | Columna en la base | Campo en Prisma |
+|---|---|---|
+| `verificacion_identidad` (tabla) | `identity_verifications` | `IdentityVerification` |
+| `usuario_id` | `user_id` | `userId` |
+| `documento_key` | `document_key` | `documentKey` |
+| `estado` | `status` | `status` |
+| `motivo_rechazo` | `rejection_reason` | `rejectionReason` |
+| `revisada_por` | `reviewed_by` | `reviewedById` |
+| `revisada_at` | `reviewed_at` | `reviewedAt` |
+| `enviada_at` | `submitted_at` | `submittedAt` |
+
+### Decisiones
+
+- **Una fila por envío.** Una solicitud `RECHAZADA` no se reabre: la persona
+  envía otra y queda como una fila nueva (sección 2.3). Así se conserva el
+  historial de decisiones con su revisor. La "última" solicitud es la de
+  `submitted_at` más reciente.
+- **Una sola `PENDIENTE` por usuario, también en la base.** Además de que
+  BE-07.1 responda `409` si ya hay una, el índice único parcial impide que dos
+  envíos simultáneos registren dos pendientes. Las `APROBADA` y `RECHAZADA`
+  pueden ser varias.
+- **La decisión va completa o no va.** El `CHECK` de revisión obliga a guardar
+  el revisor y la fecha juntos, y solo cuando la solicitud deja de estar
+  `PENDIENTE`. Pasar de `PENDIENTE` a una decisión es un `UPDATE` de la misma
+  fila; impedir que se decida dos veces (`409`) es trabajo de BE-07.2.
+- **`CASCADE` en el usuario y `RESTRICT` en el revisor.** El documento es un
+  dato personal: si se borra la cuenta, sus solicitudes se van con ella. La
+  decisión, en cambio, no debe quedar sin su revisor, así que no se puede
+  borrar a un REVISOR que ya decidió solicitudes.
+- **El documento nunca tiene URL pública.** Solo se guarda su ruta privada en
+  `document_key` (por ejemplo `verificaciones/<user_id>/<uuid>.pdf`). El archivo
+  se guarda fuera de cualquier carpeta servida como estática y solo se entrega
+  al REVISOR por la ruta protegida de BE-07.2. Las respuestas de BE-07.1 no
+  incluyen esta columna.
+- **Motivo de hasta 500 caracteres.** El documento no fija un largo; se usa el
+  mismo de los motivos de rechazo de reservas (supuesto 4 de la sección 2.5).
+- **Verificada = tiene alguna `APROBADA`.** No se duplica el dato en `users`:
+  H19 (DB-19.1 y BE-19.1) lo consulta con
+  `count(*) WHERE user_id = ? AND status = 'APROBADA'`.
+
+### Qué queda para otras tasks
+
+- **BE-07.1:** envío (`POST /api/v1/usuarios/me/verificaciones`) y consulta de
+  la última solicitud; validación de formato y tamaño del archivo.
+- **BE-07.2:** cola del REVISOR, entrega protegida del documento y decisión
+  (`PATCH /api/v1/verificaciones/{id}/decision`).
+- **DB-19.1:** `listings.requires_verification`.
+
+### Prueba de restricciones
+
+[`test/verification.constraints.e2e-spec.ts`](../../test/verification.constraints.e2e-spec.ts)
+comprueba el estado inicial `PENDIENTE` sin decisión, los tres estados y el
+rechazo de uno fuera del enum, las decisiones `APROBADA` y `RECHAZADA` (con y
+sin motivo), el paso de `PENDIENTE` a una decisión, la única `PENDIENTE` por
+usuario (y que después de una decisión se puede enviar otra), la coherencia de
+revisor y fecha, que nadie decida su propia solicitud, que la revisión no sea
+anterior al envío, los motivos vacíos o en el estado equivocado, los límites de
+500 y 255 caracteres, las FK y el comportamiento al borrar (`CASCADE` y
+`RESTRICT`), los tres índices y la consulta de "verificada".
+
+Corre contra la misma base de pruebas que las demás:
+
+```bash
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/si_be_boilerplate_test?schema=public" \
+  npx prisma migrate deploy
+npm run test:e2e
+```
