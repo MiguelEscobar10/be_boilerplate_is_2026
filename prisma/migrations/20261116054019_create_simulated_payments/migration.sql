@@ -48,11 +48,13 @@ ALTER TABLE "simulated_payments"
 ALTER TABLE "simulated_payments"
   ADD CONSTRAINT "simulated_payments_card_last4_check" CHECK ("card_last4" ~ '^[0-9]{4}$');
 
--- El motivo es obligatorio y no vacío si el intento fue RECHAZADO, y NULL en
--- los demás estados.
+-- El motivo es obligatorio si el intento fue RECHAZADO y debe tener al menos
+-- un carácter que no sea espacio en blanco (\S descarta también saltos de
+-- línea y tabs, que btrim no quita). NULL en los demás estados. El IS NOT NULL
+-- hace falta: con NULL la expresión regular da NULL y el CHECK lo aceptaría.
 ALTER TABLE "simulated_payments"
   ADD CONSTRAINT "simulated_payments_rejection_reason_check" CHECK (
-    ("status" = 'RECHAZADO' AND "rejection_reason" IS NOT NULL AND char_length(btrim("rejection_reason")) > 0)
+    ("status" = 'RECHAZADO' AND "rejection_reason" IS NOT NULL AND "rejection_reason" ~ '\S')
     OR ("status" <> 'RECHAZADO' AND "rejection_reason" IS NULL)
   );
 

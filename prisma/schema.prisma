@@ -352,7 +352,8 @@ model SimulatedPayment {
 
   // CHECK: exactamente 4 dígitos.
   cardLast4       String  @map("card_last4") @db.Char(4)
-  // CHECK: obligatorio y no vacío si RECHAZADO; NULL en los demás estados.
+  // CHECK: si RECHAZADO, obligatorio y con algún carácter que no sea espacio
+  // en blanco (~ '\S'); NULL en los demás estados.
   rejectionReason String? @map("rejection_reason") @db.VarChar(200)
   // CHECK: de 1 a 3. Único por reserva.
   attemptNumber   Int     @map("attempt_number")

@@ -268,10 +268,25 @@ describe('pagos simulados: restricciones (DB-05.1)', () => {
     );
   });
 
-  it('rechaza un motivo de solo espacios en un RECHAZADO', async () => {
+  it.each([
+    ['vacío', ''],
+    ['de solo espacios', '   '],
+    ['de solo un salto de línea', '\n'],
+    ['de solo tabs', '\t\t'],
+    ['de espacios, saltos de línea y tabs', ' \r\n\t \n'],
+  ])('rechaza un motivo %s en un RECHAZADO', async (_case, rejectionReason) => {
     await expect(
-      newPayment({ status: 'RECHAZADO', rejectionReason: '   ' }),
+      newPayment({ status: 'RECHAZADO', rejectionReason }),
     ).rejects.toThrow(/simulated_payments_rejection_reason_check/);
+  });
+
+  it('acepta un motivo con texto rodeado de espacios en blanco', async () => {
+    await expect(
+      newPayment({
+        status: 'RECHAZADO',
+        rejectionReason: '\n Fondos insuficientes\t',
+      }),
+    ).resolves.toBeDefined();
   });
 
   it.each(['PENDIENTE', 'APROBADO'] as const)(
