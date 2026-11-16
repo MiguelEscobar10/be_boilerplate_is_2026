@@ -264,3 +264,76 @@ decisiones registradas, que es lo que la migración agrega.
 Quité cada `CHECK` por separado en la base de pruebas y en los tres casos la
 prueba falla.
 
+## DB-14.1. Restricciones de los bloqueos de disponibilidad (MP4-60)
+
+Completa la tabla `availability_blocks` que creó DB-03.1 para que BE-14.1
+pueda registrar quién bloqueó las fechas (H14) y consultar traslapes rápido.
+
+### Modelo de datos
+
+Migración
+[`20261116232415_complete_availability_blocks`](../../prisma/migrations/20261116232415_complete_availability_blocks/migration.sql).
+
+| Columna | Tipo | Nulo | Descripción |
+|---|---|---|---|
+| `created_by` | `UUID` | sí | Arrendador que creó el bloqueo. FK a `users.id`, `ON DELETE RESTRICT`. |
+| `created_at` | `TIMESTAMP(3)` | no | Fecha de creación. `CURRENT_TIMESTAMP` por defecto. |
+
+| Brief | Columna en la base | Campo en Prisma |
+|---|---|---|
+| `creado_por` | `created_by` | `createdById` (relación `createdBy`) |
+| `created_at` | `created_at` | `createdAt` |
+
+- **Índice** `availability_blocks_listing_id_start_at_end_at_idx` sobre
+  `(listing_id, start_at, end_at)`, para buscar los bloqueos de una
+  publicación que se cruzan con un rango
+  (`WHERE listing_id = ? AND start_at < :fin AND end_at > :inicio`).
+- **`CHECK availability_blocks_reason_check`**: el motivo es opcional, pero si
+  viene debe tener algún carácter que no sea espacio en blanco (`~ '\S'`).
+
+Lo demás que pide la task ya viene de DB-03.1 y no se repite: `start_at <
+end_at` (`availability_blocks_period_check`), el motivo de 200 caracteres y la
+FK a la publicación con `CASCADE`.
+
+### Decisiones
+
+- **`created_by` admite `NULL` en la base.** Las pruebas de otros módulos
+  (reportes, las restricciones de DB-03.1) crean bloqueos directo en la tabla
+  sin autor, y con `NOT NULL` dejarían de pasar. BE-14.1 lo guarda siempre: el
+  autor es el arrendador autenticado, que además tiene que ser el dueño.
+- **Los bloqueos que ya existían reciben autor.** La migración les asigna el
+  dueño de la publicación, que es el único que puede bloquear. Y un motivo de
+  solo espacios pasa a `NULL` para que cumpla el `CHECK` nuevo. Lo probé en
+  una base aparte con tres bloqueos anteriores a la migración: quedan los tres,
+  con autor y con `created_at`.
+- **`RESTRICT` en `created_by`**, igual que el dueño en `listings`. Para borrar
+  al usuario primero se borra su publicación, y con ella sus bloqueos.
+- **La base no impide que un bloqueo se cruce con una reserva.** Eso lo revisa
+  BE-14.1 antes de insertar (409 si hay una `CONFIRMADA` o `EN_CURSO`), dentro
+  de una transacción que bloquea la fila de la publicación, como la aprobación
+  de DB-04.1. Dos bloqueos sí pueden cruzarse entre sí: no hace daño.
+
+### Cómo revertir la migración
+
+```sql
+ALTER TABLE "availability_blocks"
+  DROP CONSTRAINT "availability_blocks_reason_check",
+  DROP CONSTRAINT "availability_blocks_created_by_fkey",
+  DROP COLUMN "created_by",
+  DROP COLUMN "created_at";
+DROP INDEX "availability_blocks_listing_id_start_at_end_at_idx";
+```
+
+### Prueba de restricciones
+
+[`test/availability-blocks.constraints.e2e-spec.ts`](../../test/availability-blocks.constraints.e2e-spec.ts)
+(`npm run test:e2e`, contra la base `_test`): autor y fecha de creación, bloqueo
+sin autor, la FK y el `RESTRICT` de `created_by`, fin igual o anterior al
+inicio, motivo de 200 y de 201 caracteres, motivo vacío o de solo espacios, que
+el índice existe y que la consulta de traslapes lo usa, y que esa consulta
+devuelve solo los bloqueos de la publicación que se cruzan con el rango (los
+que tocan el borde no cuentan).
+
+Quité el `CHECK` del motivo y el índice por separado en la base de pruebas y en
+los dos casos la prueba falla.
+
