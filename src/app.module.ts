@@ -8,6 +8,7 @@ import { ListingsModule } from '@Listings';
 import { MessagingModule } from '@Messaging';
 import { NotificationsModule } from '@Notifications';
 import { PrismaModule } from '@Prisma';
+import { ReportsModule } from '@Reports';
 import { UsersModule } from '@Users';
 import { validateEnv } from '@Config';
 
@@ -26,6 +27,7 @@ import { validateEnv } from '@Config';
     ListingsModule,
     NotificationsModule,
     MessagingModule,
+    ReportsModule,
   ],
   providers: [
     {

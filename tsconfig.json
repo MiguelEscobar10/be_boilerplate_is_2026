@@ -47,6 +47,8 @@
       "@Messaging/*": ["./src/messaging/*/index.ts"],
       "@Notifications": ["./src/notifications/index.ts"],
       "@Notifications/*": ["./src/notifications/*/index.ts"],
+      "@Reports": ["./src/reports/index.ts"],
+      "@Reports/*": ["./src/reports/*/index.ts"],
       "@Health": ["./src/health/index.ts"],
       "@Health/*": ["./src/health/*/index.ts"],
       "@Prisma": ["./src/prisma/index.ts"],
