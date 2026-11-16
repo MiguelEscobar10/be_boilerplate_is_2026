@@ -23,7 +23,7 @@ Migración
 | `deposit_amount` | `DECIMAL(12,2)` | no | Depósito de garantía. `CHECK (>= 0)`. |
 | `status` | `SimulatedPaymentStatus` | no | Resultado del intento. `PENDIENTE` por defecto. |
 | `card_last4` | `CHAR(4)` | no | Últimos 4 dígitos de la tarjeta. `CHECK (card_last4 ~ '^[0-9]{4}$')`. |
-| `rejection_reason` | `VARCHAR(200)` | sí | Motivo del rechazo. Obligatorio y no vacío si `RECHAZADO`; `NULL` en los demás estados. |
+| `rejection_reason` | `VARCHAR(200)` | sí | Motivo del rechazo. Obligatorio si `RECHAZADO`, con al menos un carácter que no sea espacio en blanco; `NULL` en los demás estados. |
 | `attempt_number` | `INTEGER` | no | Número de intento dentro de la reserva. `CHECK (BETWEEN 1 AND 3)`. |
 | `created_at` | `TIMESTAMP(3)` | no | Fecha del intento, en UTC. |
 
@@ -49,7 +49,7 @@ La tabla `reservations` no cambia: la relación inversa
 | `simulated_payments_total_matches_parts_check` | CHECK | `total_amount = rental_cost + deposit_amount` |
 | `simulated_payments_attempt_number_check` | CHECK | `attempt_number BETWEEN 1 AND 3` |
 | `simulated_payments_card_last4_check` | CHECK | `card_last4 ~ '^[0-9]{4}$'` |
-| `simulated_payments_rejection_reason_check` | CHECK | `RECHAZADO` con motivo no vacío; los demás estados con `NULL`. |
+| `simulated_payments_rejection_reason_check` | CHECK | `RECHAZADO` con `rejection_reason IS NOT NULL AND rejection_reason ~ '\S'`; los demás estados con `NULL`. |
 | `simulated_payments_reservation_id_attempt_number_key` | UNIQUE | Un número de intento no se repite dentro de una reserva. |
 | `simulated_payments_one_approved_per_reservation_key` | UNIQUE parcial | `(reservation_id) WHERE status = 'APROBADO'`: un solo pago aprobado por reserva. |
 | `simulated_payments_reservation_id_created_at_id_idx` | Índice | `(reservation_id, created_at DESC, id DESC)`: historial de intentos, el más reciente primero. |
@@ -89,9 +89,15 @@ desde el schema.
   deposit_amount` evita un recibo incoherente. Que esos importes coincidan con
   la fotografía de precio de la reserva lo valida BE-05.1, porque en la base
   haría falta un trigger.
-- **El motivo depende del estado.** Es obligatorio y no vacío en un
-  `RECHAZADO`, para que el arrendatario sepa por qué falló, y `NULL` en los
-  demás estados.
+- **El motivo depende del estado.** Es obligatorio en un `RECHAZADO`, para
+  que el arrendatario sepa por qué falló, y `NULL` en los demás estados. Debe
+  tener al menos un carácter que no sea espacio en blanco (`~ '\S'`): así
+  se rechazan también los motivos de solo saltos de línea o tabs, que
+  `btrim` no quitaba. El `IS NOT NULL` sigue haciendo falta, porque con `NULL`
+  la expresión regular da `NULL` y el `CHECK` lo dejaría pasar.
+- **Sin número de transacción.** La tabla no tiene `numero_transaccion`: no
+  aparece en las historias H05 y H06 ni en BE-05.1 y BE-06.1, solo en la
+  ficha de Jira de DB-05.1, que está desactualizada.
 - **`card_last4` es obligatorio.** BE-05.1 solo guarda intentos con las
   tarjetas de prueba (terminadas en `4242` o `0002`); cualquier otra devuelve
   400 sin crear fila, así que todo intento guardado tiene tarjeta. `CHAR(4)`
@@ -114,7 +120,9 @@ comprueba cada restricción de la tabla: la FK, los importes negativos y en
 cero, el total incoherente, los intentos 0 y 4 (y 1 a 3 válidos), el intento
 repetido, el segundo `APROBADO` por reserva, que varios `RECHAZADO` convivan
 con el `APROBADO` final, la tarjeta con letras, espacios, 3 y 5 dígitos, el
-motivo según el estado, la existencia de los índices y el `RESTRICT` al borrar la reserva. Al
+motivo según el estado (vacío o formado solo por espacios, saltos de línea o
+tabs se rechaza; con texto rodeado de espacios en blanco se acepta), el motivo
+de más de 200 caracteres, la existencia de los índices y el `RESTRICT` al borrar la reserva. Al
 terminar borra los pagos, reservas, publicación y usuarios que creó.
 
 Corre contra la misma base de pruebas que las demás:
