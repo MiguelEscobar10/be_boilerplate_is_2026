@@ -45,6 +45,10 @@ model User {
   listings      Listing[]
   profile       UserProfile?
 
+  conversationsAsTenant   Conversation[] @relation("ConversationTenant")
+  conversationsAsLandlord Conversation[] @relation("ConversationLandlord")
+  messages                Message[]
+
   @@map("users")
 }
 
@@ -151,7 +155,8 @@ model Listing {
   isActive   Boolean  @default(true) @map("is_active")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  images ListingImage[]
+  images        ListingImage[]
+  conversations Conversation[]
 
   @@index([landlordId])
   @@map("listings")
@@ -171,6 +176,55 @@ model ListingImage {
 
   @@unique([listingId, position])
   @@map("listing_images")
+}
+
+// Conversación entre arrendatario y arrendador sobre una publicación (H15).
+// La misma tabla sirve para la conversación de una reserva (H16, DB-16.1).
+// Ver docs/modulos/mensajeria.md.
+model Conversation {
+  id String @id @default(uuid()) @db.Uuid
+
+  listingId String  @map("listing_id") @db.Uuid
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Restrict)
+
+  tenantId String @map("tenant_id") @db.Uuid
+  tenant   User   @relation("ConversationTenant", fields: [tenantId], references: [id], onDelete: Restrict)
+
+  landlordId String @map("landlord_id") @db.Uuid
+  landlord   User   @relation("ConversationLandlord", fields: [landlordId], references: [id], onDelete: Restrict)
+
+  // NULL = conversación previa a la reserva (H15). La FK a reservations la
+  // agrega DB-16.1 cuando exista la tabla de reservas (DB-03.1).
+  reservationId String? @map("reservation_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  messages Message[]
+
+  // Índice único parcial (listing_id, tenant_id) WHERE reservation_id IS NULL
+  // y CHECK tenant_id <> landlord_id: escritos a mano en la migración.
+  @@index([tenantId])
+  @@index([landlordId])
+  @@map("conversations")
+}
+
+// Mensaje dentro de una conversación (H15, H16).
+model Message {
+  id String @id @default(uuid()) @db.Uuid
+
+  conversationId String       @map("conversation_id") @db.Uuid
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  authorId String @map("author_id") @db.Uuid
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  // CHECK: al menos 1 carácter sin contar espacios de los extremos.
+  content   String   @db.VarChar(1000)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Historial en orden cronológico; id desempata mensajes del mismo instante.
+  @@index([conversationId, createdAt, id])
+  @@map("messages")
 }
 
 // Roles del sistema (sección 2.1). ARRENDADOR y ARRENDATARIO se registran
