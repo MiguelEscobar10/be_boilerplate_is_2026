@@ -40,11 +40,13 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  refreshTokens RefreshToken[]
-  notifications Notification[]
-  listings      Listing[]
-  profile       UserProfile?
-  reservations  Reservation[]
+  refreshTokens       RefreshToken[]
+  notifications       Notification[]
+  listings            Listing[]
+  profile             UserProfile?
+  reservations        Reservation[]  @relation("ReservationTenant")
+  // Reservas que este usuario aprobó o rechazó como arrendador (DB-04.1).
+  decidedReservations Reservation[]  @relation("ReservationDecidedBy")
 
   conversationsAsTenant   Conversation[] @relation("ConversationTenant")
   conversationsAsLandlord Conversation[] @relation("ConversationLandlord")
@@ -280,7 +282,7 @@ model Reservation {
   listing   Listing @relation(fields: [listingId], references: [id], onDelete: Restrict)
 
   tenantId String @map("tenant_id") @db.Uuid
-  tenant   User   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant   User   @relation("ReservationTenant", fields: [tenantId], references: [id], onDelete: Restrict)
 
   // Período solicitado, en UTC. El CHECK reservations_period_check exige
   // start_at < end_at (la migración lo agrega porque Prisma no modela CHECK).
@@ -295,6 +297,16 @@ model Reservation {
   depositAmount Decimal @map("deposit_amount") @db.Decimal(12, 2)
 
   createdAt DateTime @default(now()) @map("created_at")
+
+  // Decisión del arrendador (H04, DB-04.1). Las tres columnas son NULL
+  // mientras la reserva está PENDIENTE. Los CHECK van a mano en la migración:
+  // fecha y autor van juntos, una PENDIENTE no tiene decisión y el motivo
+  // solo existe en una RECHAZADA y no puede ser solo espacios.
+  decidedAt       DateTime? @map("decided_at")
+  // RESTRICT: quien decidió es parte del registro de la reserva.
+  decidedById     String?   @map("decided_by") @db.Uuid
+  decidedBy       User?     @relation("ReservationDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
+  rejectionReason String?   @map("rejection_reason") @db.VarChar(500)
 
   simulatedPayments SimulatedPayment[]
 
