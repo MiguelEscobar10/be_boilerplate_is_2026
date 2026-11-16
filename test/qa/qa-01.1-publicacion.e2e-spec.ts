@@ -287,14 +287,16 @@ describe('QA-01.1: flujo de publicación', () => {
       expect(saved.landlordId).not.toBe(userId.owner);
     });
 
-    it('P17: no existe ningún endpoint para modificar una publicación (ni propia ni ajena)', async () => {
+    it('P17: nadie puede modificar una publicación, ni el dueño ni otro arrendador', async () => {
       const { body } = await publish().expect(201);
-      for (const method of ['put', 'patch', 'delete'] as const) {
-        const res = await http()
-          [method](`/api/v1/publicaciones/${body.id}`)
-          .set('Authorization', `Bearer ${token.other}`)
-          .send({ nombre: 'Cambiado por otro' });
-        expect(res.status).toBe(404);
+      for (const who of ['owner', 'other'] as const) {
+        for (const method of ['put', 'patch', 'delete'] as const) {
+          const res = await http()
+            [method](`/api/v1/publicaciones/${body.id}`)
+            .set('Authorization', `Bearer ${token[who]}`)
+            .send({ nombre: `Cambiado por ${who}` });
+          expect(res.status).toBe(404);
+        }
       }
       const saved = await prisma.listing.findUniqueOrThrow({
         where: { id: body.id },
