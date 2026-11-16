@@ -57,6 +57,12 @@ export class DocumentStorageService {
     await rm(this.absolutePath(relative), { force: true });
   }
 
+  contentType(relative: string): string {
+    if (relative.endsWith('.pdf')) return 'application/pdf';
+    if (relative.endsWith('.png')) return 'image/png';
+    return 'image/jpeg';
+  }
+
   absolutePath(relative: string): string {
     const full = resolve(this.root, relative);
     // Nunca se lee ni se borra nada fuera de UPLOADS_DIR, aunque la ruta venga rara.
