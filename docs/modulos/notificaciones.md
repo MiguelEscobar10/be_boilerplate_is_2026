@@ -2,6 +2,7 @@
 
 Avisos informativos asociados a un usuario (historia H10). Los registra el
 servicio de avisos (H20) y se consultan desde la bandeja de cada usuario.
+Contrato del servicio de avisos para los módulos emisores: [`docs/contratos/servicio-avisos.md`](../contratos/servicio-avisos.md).
 
 ## DB-10.1. Entidad de notificaciones por usuario (MP4-106)
 
