@@ -9,6 +9,7 @@ import { MessagingModule } from '@Messaging';
 import { NotificationsModule } from '@Notifications';
 import { PrismaModule } from '@Prisma';
 import { UsersModule } from '@Users';
+import { VerificationModule } from '@Verification';
 import { validateEnv } from '@Config';
 
 @Module({
@@ -26,6 +27,7 @@ import { validateEnv } from '@Config';
     ListingsModule,
     NotificationsModule,
     MessagingModule,
+    VerificationModule,
   ],
   providers: [
     {
