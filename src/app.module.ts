@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from '@Auth';
+import { DeliveriesModule } from '@Deliveries';
 import { JwtAuthGuard, RolesGuard } from '@Auth/guards';
 import { HealthModule } from '@Health';
 import { ListingsModule } from '@Listings';
@@ -26,6 +27,7 @@ import { validateEnv } from '@Config';
     ListingsModule,
     NotificationsModule,
     MessagingModule,
+    DeliveriesModule,
   ],
   providers: [
     {
