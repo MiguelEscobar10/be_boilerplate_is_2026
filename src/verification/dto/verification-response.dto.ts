@@ -42,7 +42,8 @@ export class VerificationResponseDto extends VerificationCreatedDto {
     verification: IdentityVerification,
   ): VerificationResponseDto {
     return {
-      ...VerificationCreatedDto.fromEntity(verification),
+      id: verification.id,
+      estado: verification.status,
       motivoRechazo: verification.rejectionReason,
       enviadaAt: verification.submittedAt,
       revisadaAt: verification.reviewedAt,
