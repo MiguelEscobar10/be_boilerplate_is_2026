@@ -1,16 +1,20 @@
 import { Module } from '@nestjs/common';
-import { AvisosService } from '@Notifications/services';
+import { NotificacionesController } from '@Notifications/controllers';
+import { AvisosService, BandejaService } from '@Notifications/services';
 import { NotificationRepository } from '@Notifications/repositories';
 
 /**
  * Módulo 8: Notificaciones.
  *
- * No tiene controllers: el servicio de avisos es interno y no se expone como
- * endpoint público. Los demás módulos importan NotificationsModule e inyectan
- * AvisosService para llamar a `notificar(aviso)`.
+ * - AvisosService (H20) es interno y no se expone como endpoint: los demás
+ *   módulos importan NotificationsModule y lo inyectan para llamar a
+ *   `notificar(aviso)`.
+ * - NotificacionesController (H10) expone la bandeja del usuario autenticado:
+ *   listar, marcar como leída y contar las no leídas. No tiene POST.
  */
 @Module({
-  providers: [AvisosService, NotificationRepository],
+  controllers: [NotificacionesController],
+  providers: [AvisosService, BandejaService, NotificationRepository],
   exports: [AvisosService],
 })
 export class NotificationsModule {}
