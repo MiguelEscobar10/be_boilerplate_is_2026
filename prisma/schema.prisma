@@ -296,6 +296,8 @@ model Reservation {
 
   createdAt DateTime @default(now()) @map("created_at")
 
+  simulatedPayments SimulatedPayment[]
+
   // Búsqueda de solapamientos: reservas CONFIRMADA o EN_CURSO de una
   // publicación que se cruzan con un rango.
   @@index([listingId, status, startAt, endAt])
@@ -318,4 +320,50 @@ model AvailabilityBlock {
   reason  String?  @db.VarChar(200)
 
   @@map("availability_blocks")
+}
+
+// Estados de un intento de pago simulado (H05). En español, como el `estado`
+// que viaja en la API.
+enum SimulatedPaymentStatus {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+}
+
+// Intento de pago simulado de una reserva (H05, H06). Cada intento es una fila
+// nueva: los rechazados no se sobrescriben. Ver docs/modulos/pagos.md.
+//
+// No hay columnas para el número completo de la tarjeta ni para el código de
+// seguridad: solo se guardan los últimos 4 dígitos.
+model SimulatedPayment {
+  id String @id @default(uuid()) @db.Uuid
+
+  // RESTRICT: el pago es un registro financiero y no desaparece con la reserva.
+  reservationId String      @map("reservation_id") @db.Uuid
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+
+  // Importes con dos decimales. CHECK >= 0 en cada uno y
+  // total_amount = rental_cost + deposit_amount, en la migración.
+  totalAmount   Decimal @map("total_amount") @db.Decimal(12, 2)
+  rentalCost    Decimal @map("rental_cost") @db.Decimal(12, 2)
+  depositAmount Decimal @map("deposit_amount") @db.Decimal(12, 2)
+
+  status SimulatedPaymentStatus @default(PENDIENTE)
+
+  // CHECK: exactamente 4 dígitos.
+  cardLast4       String  @map("card_last4") @db.Char(4)
+  // CHECK: si RECHAZADO, obligatorio y con algún carácter que no sea espacio
+  // en blanco (~ '\S'); NULL en los demás estados.
+  rejectionReason String? @map("rejection_reason") @db.VarChar(200)
+  // CHECK: de 1 a 3. Único por reserva.
+  attemptNumber   Int     @map("attempt_number")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Índice único parcial (reservation_id) WHERE status = 'APROBADO': escrito a
+  // mano en la migración.
+  @@unique([reservationId, attemptNumber])
+  // Historial de intentos de una reserva, más recientes primero.
+  @@index([reservationId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("simulated_payments")
 }
