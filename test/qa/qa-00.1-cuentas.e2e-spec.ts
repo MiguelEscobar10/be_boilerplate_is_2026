@@ -116,6 +116,32 @@ describe('QA-00.1: registro por rol y permisos', () => {
       },
     );
 
+    it('C16: un correo ya registrado responde 409 y no crea otra cuenta', async () => {
+      const email = `duplicado-${suffix}`;
+      await register({ email }).expect(201);
+      const before = await countUsers();
+
+      // Mismo correo con otras mayúsculas: el backend lo normaliza.
+      await register({
+        email: email.toUpperCase(),
+        rol: 'ARRENDATARIO',
+      }).expect(409);
+      expect(await countUsers()).toBe(before);
+    });
+
+    it.each([
+      ['C17', 'de menos de 8 caracteres', 'Ab1'],
+      ['C18', 'sin mayúsculas', 'sinmayus123'],
+      ['C19', 'sin números', 'SinNumeros'],
+    ])(
+      '%s: rechaza una contraseña %s sin crear la cuenta',
+      async (_id, _case, weak) => {
+        const before = await countUsers();
+        await register({ password: weak }).expect(400);
+        expect(await countUsers()).toBe(before);
+      },
+    );
+
     it('C10: no acepta un campo extra para colarse otro rol (role)', async () => {
       const before = await countUsers();
       await register({ role: 'REVISOR' }).expect(400);
