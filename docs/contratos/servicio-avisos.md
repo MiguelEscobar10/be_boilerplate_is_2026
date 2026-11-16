@@ -227,17 +227,73 @@ export function avisarSolicitudNueva(
 
 ### BE-04.1 · Confirmar o rechazar una reserva
 
+El mensaje lleva el nombre del bien, las fechas de la reserva (dd/mm/aaaa, hora
+de El Salvador) y el motivo si existe. Sin motivo, termina en «fue confirmada.»
+o «fue rechazada.».
+
+**Límite de 500 caracteres.** El motivo admite hasta 500 caracteres y el
+`mensaje` del aviso también admite 500 en total, así que un motivo largo no
+cabe completo. BE-04.1 debe recortar el motivo (como hace `agregarMotivo`) para
+que el mensaje nunca pase de 500: si pasa, `notificar` lanza
+`AvisoInvalidoError` y el aviso no se registra.
+
 ```ts
+/** Largo máximo de `mensaje` en el contrato. */
+const MENSAJE_MAX = 500;
+
+const formatoFecha = new Intl.DateTimeFormat('es-SV', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  timeZone: 'America/El_Salvador',
+});
+
+/** dd/mm/aaaa en la hora de El Salvador. */
+function formatearFecha(fecha: Date): string {
+  const partes = Object.fromEntries(
+    formatoFecha.formatToParts(fecha).map(({ type, value }) => [type, value]),
+  );
+  return `${partes.day}/${partes.month}/${partes.year}`;
+}
+
+/**
+ * Agrega " Motivo: <motivo>." recortando el motivo para que el mensaje completo
+ * no pase de MENSAJE_MAX. Cuenta caracteres igual que AvisosService.
+ */
+function agregarMotivo(base: string, motivo?: string): string {
+  const texto = motivo?.trim();
+  if (!texto) return base;
+  const prefijo = ' Motivo: ';
+  // Lo que queda para el motivo, descontando el punto final.
+  const libre = MENSAJE_MAX - Array.from(base + prefijo).length - 1;
+  const caracteres = Array.from(texto);
+  if (caracteres.length <= libre) return `${base}${prefijo}${texto}.`;
+  if (libre < 2) return base;
+  const recortado = caracteres.slice(0, libre - 1).join('').trimEnd();
+  return `${base}${prefijo}${recortado}….`;
+}
+
 export function avisarDecisionReserva(
   avisos: AvisosService,
-  reserva: { id: string; arrendatarioId: string; bienNombre: string },
+  reserva: {
+    id: string;
+    arrendatarioId: string;
+    bienNombre: string;
+    fechaInicio: Date;
+    fechaFin: Date;
+    /** Opcional, hasta 500 caracteres. */
+    motivo?: string;
+  },
   estado: 'CONFIRMADA' | 'RECHAZADA',
 ): Promise<AvisoRegistrado> {
   const resultado = estado === 'CONFIRMADA' ? 'confirmada' : 'rechazada';
+  const inicio = formatearFecha(reserva.fechaInicio);
+  const fin = formatearFecha(reserva.fechaFin);
+  const base = `Tu reserva de «${reserva.bienNombre}» del ${inicio} al ${fin} fue ${resultado}.`;
   return avisos.notificar({
     destinatarioId: reserva.arrendatarioId,
     titulo: `Reserva ${estado}`,
-    mensaje: `Tu reserva de «${reserva.bienNombre}» fue ${resultado}.`,
+    mensaje: agregarMotivo(base, reserva.motivo),
     moduloOrigen: ModuloOrigen.RESERVAS,
     referencia: { tipo: 'reserva', id: reserva.id },
   });
@@ -329,7 +385,9 @@ export function avisarGarantiaResuelta(
 ### BE-15.1 · Mensajería: mensaje nuevo
 
 El destinatario es el **otro** participante de la conversación, nunca quien
-envía el mensaje.
+envía el mensaje. El aviso lleva solo el nombre del bien, sin el texto del
+mensaje, igual que `messaging.service.ts` (ver
+[`docs/modulos/mensajeria.md`](../modulos/mensajeria.md)).
 
 ```ts
 export function avisarMensajeNuevo(
@@ -338,14 +396,14 @@ export function avisarMensajeNuevo(
     id: string;
     /** El otro participante de la conversación, no quien envía. */
     destinatarioId: string;
-    remitenteNombre: string;
+    bienNombre: string;
   },
 ): Promise<AvisoRegistrado> {
   return avisos.notificar({
     destinatarioId: mensaje.destinatarioId,
     titulo: 'Mensaje nuevo',
-    // Sin el texto del mensaje: podría traer datos sensibles.
-    mensaje: `${mensaje.remitenteNombre} te envió un mensaje.`,
+    // Sin el texto del mensaje: solo el nombre del bien.
+    mensaje: `Tenés un mensaje nuevo sobre "${mensaje.bienNombre}".`,
     moduloOrigen: ModuloOrigen.MENSAJERIA,
     referencia: { tipo: 'mensaje', id: mensaje.id },
   });

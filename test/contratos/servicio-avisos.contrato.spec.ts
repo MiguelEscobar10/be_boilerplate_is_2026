@@ -134,30 +134,79 @@ describe('Contrato del servicio de avisos', () => {
       ]);
     });
 
-    it.each([
-      ['CONFIRMADA', 'Reserva CONFIRMADA', 'confirmada'],
-      ['RECHAZADA', 'Reserva RECHAZADA', 'rechazada'],
-    ] as const)(
-      'BE-04.1: reserva %s → arrendatario',
-      async (estado, titulo, resultado) => {
+    describe('BE-04.1: decisión sobre la reserva → arrendatario', () => {
+      // Mediodía UTC: el día no cambia en la hora de El Salvador (UTC-6).
+      const RESERVA_DATOS = {
+        id: RESERVA,
+        arrendatarioId: ARRENDATARIO,
+        bienNombre: BIEN,
+        fechaInicio: new Date('2026-11-20T12:00:00Z'),
+        fechaFin: new Date('2026-11-22T12:00:00Z'),
+      };
+      const BASE_RECHAZADA = `Tu reserva de «${BIEN}» del 20/11/2026 al 22/11/2026 fue rechazada.`;
+
+      it.each([
+        ['CONFIRMADA', 'Reserva CONFIRMADA', 'confirmada'],
+        ['RECHAZADA', 'Reserva RECHAZADA', 'rechazada'],
+      ] as const)(
+        'reserva %s sin motivo',
+        async (estado, titulo, resultado) => {
+          await avisarDecisionReserva(avisos, RESERVA_DATOS, estado);
+
+          expect(registrados()).toEqual([
+            {
+              userId: ARRENDATARIO,
+              sourceModule: 'RESERVAS',
+              title: titulo,
+              message: `Tu reserva de «${BIEN}» del 20/11/2026 al 22/11/2026 fue ${resultado}.`,
+              referenceType: 'reserva',
+              referenceId: RESERVA,
+            },
+          ]);
+        },
+      );
+
+      it('reserva RECHAZADA con motivo', async () => {
         await avisarDecisionReserva(
           avisos,
-          { id: RESERVA, arrendatarioId: ARRENDATARIO, bienNombre: BIEN },
-          estado,
+          { ...RESERVA_DATOS, motivo: 'Fechas no disponibles' },
+          'RECHAZADA',
         );
 
         expect(registrados()).toEqual([
-          {
-            userId: ARRENDATARIO,
-            sourceModule: 'RESERVAS',
-            title: titulo,
-            message: `Tu reserva de «${BIEN}» fue ${resultado}.`,
-            referenceType: 'reserva',
-            referenceId: RESERVA,
-          },
+          expect.objectContaining({
+            title: 'Reserva RECHAZADA',
+            message: `${BASE_RECHAZADA} Motivo: Fechas no disponibles.`,
+          }),
         ]);
-      },
-    );
+      });
+
+      it('un motivo de solo espacios se trata como sin motivo', async () => {
+        await avisarDecisionReserva(
+          avisos,
+          { ...RESERVA_DATOS, motivo: '   ' },
+          'RECHAZADA',
+        );
+
+        expect(registrados()[0].message).toBe(BASE_RECHAZADA);
+      });
+
+      it('un motivo de 500 caracteres se recorta y el aviso se registra', async () => {
+        await expect(
+          avisarDecisionReserva(
+            avisos,
+            { ...RESERVA_DATOS, motivo: 'x'.repeat(500) },
+            'RECHAZADA',
+          ),
+        ).resolves.toEqual({ id: 'aviso-1' });
+
+        expect(repo.create).toHaveBeenCalledTimes(1);
+        const { message } = registrados()[0];
+        expect(Array.from(message).length).toBeLessThanOrEqual(500);
+        expect(message.startsWith(`${BASE_RECHAZADA} Motivo: x`)).toBe(true);
+        expect(message.endsWith('x….')).toBe(true);
+      });
+    });
 
     it('BE-05.1: pago APROBADO → arrendatario y arrendador', async () => {
       await expect(
@@ -232,7 +281,7 @@ describe('Contrato del servicio de avisos', () => {
       await avisarMensajeNuevo(avisos, {
         id: MENSAJE,
         destinatarioId: ARRENDADOR,
-        remitenteNombre: 'Ana',
+        bienNombre: BIEN,
       });
 
       expect(registrados()).toEqual([
@@ -240,7 +289,8 @@ describe('Contrato del servicio de avisos', () => {
           userId: ARRENDADOR,
           sourceModule: 'MENSAJERIA',
           title: 'Mensaje nuevo',
-          message: 'Ana te envió un mensaje.',
+          // Igual a lo que emite messaging.service.ts (BE-15.1).
+          message: `Tenés un mensaje nuevo sobre "${BIEN}".`,
           referenceType: 'mensaje',
           referenceId: MENSAJE,
         },
@@ -297,7 +347,7 @@ describe('Contrato del servicio de avisos', () => {
           {
             destinatarioId: ARRENDATARIO,
             titulo: 'Mensaje nuevo',
-            mensaje: 'Ana te envió un mensaje.',
+            mensaje: `Tenés un mensaje nuevo sobre "${BIEN}".`,
             moduloOrigen: ModuloOrigen.MENSAJERIA,
           },
           vi.fn(),
