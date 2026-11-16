@@ -205,12 +205,6 @@ Migración
 - **Sin índice sobre la columna.** Solo se lee junto con la publicación que se
   está solicitando (por `id`), nunca para filtrar el catálogo.
 
-### Qué queda para otras tasks
-
-- **BE-19.1:** `PATCH /api/v1/publicaciones/{id}/requiere-verificacion` (solo el
-  dueño) y la función `exigeVerificacionYNoCumple(publicacionId,
-  arrendatarioId)` que usa BE-03.1 para responder `422 VERIFICACION_REQUERIDA`.
-
 ### Prueba
 
 [`test/verification.requirement.constraints.e2e-spec.ts`](../../test/verification.requirement.constraints.e2e-spec.ts)
@@ -221,3 +215,73 @@ false`, el rechazo de `NULL`, activar y desactivar la opción, y la consulta de
 `APROBADA` sigue contando aunque después haya otras, y la de un usuario no
 cuenta para otro. También comprueba que `users` no tiene una columna de
 verificación.
+
+## BE-19.1. Opción y validación de la verificación (MP4-103)
+
+### Endpoint
+
+| Método | Ruta | Rol | Respuesta |
+|---|---|---|---|
+| `PATCH` | `/api/v1/publicaciones/{id}/requiere-verificacion` | `ARRENDADOR` dueño | `200 { id, requiereVerificacion }` |
+
+Cuerpo: `{ "requiereVerificacion": true }`.
+
+- **400** si `requiereVerificacion` falta o no es booleano (`"true"` como texto
+  o `1` no sirven), si viene un campo de más o si el id no es un UUID.
+- **401** sin sesión; **403** si la cuenta no es `ARRENDADOR` o si la
+  publicación no es suya (el contrato de BE-19.1 pide 403, no 404); **404** si
+  la publicación no existe.
+- Repetir el valor que ya tiene responde 200 sin escribir.
+
+El controller (`ListingVerificationController`) vive en este módulo y comparte
+el prefijo `publicaciones` con el de BE-01.1, que no se tocó. Solo cambia
+`listings.requires_verification`.
+
+### Regla para BE-03.1: `exigeVerificacionYNoCumple`
+
+`VerificationRequirementService.exigeVerificacionYNoCumple(publicacionId,
+arrendatarioId)` devuelve `true` cuando la publicación exige verificación y el
+arrendatario **no** tiene una verificación `APROBADA` (no tiene ninguna, o solo
+`PENDIENTE` o `RECHAZADA`). En ese caso la solicitud de reserva no se registra.
+Devuelve `false` si la publicación no la exige, si el arrendatario está
+verificado o si la publicación no existe (ese 404 lo decide BE-03.1).
+
+Cómo usarla desde reservas:
+
+```ts
+// reservations.module.ts
+imports: [VerificationModule],
+
+// reservations.service.ts
+import { VerificationRequirementService } from '@Verification/services';
+import { VerificacionRequeridaException } from '@Verification/errors';
+
+if (await this.requisito.exigeVerificacionYNoCumple(publicacionId, arrendatarioId)) {
+  throw new VerificacionRequeridaException();
+}
+```
+
+`VerificacionRequeridaException` responde **422** con el formato de Nest y un
+`codigo` para que el frontend (FE-19.1) reconozca el caso sin depender del
+texto:
+
+```json
+{
+  "statusCode": 422,
+  "error": "Unprocessable Entity",
+  "codigo": "VERIFICACION_REQUERIDA",
+  "message": "Esta publicación solo acepta usuarios verificados. Envía tu documento de identidad para verificarte."
+}
+```
+
+### Pruebas
+
+- [`src/verification/services/verification-requirement.service.spec.ts`](../../src/verification/services/verification-requirement.service.spec.ts):
+  dueño, no dueño (403), publicación inexistente (404), valor repetido, los
+  cuatro casos de la regla y el cuerpo del 422.
+- [`test/verification.requirement.e2e-spec.ts`](../../test/verification.requirement.e2e-spec.ts):
+  activar y desactivar, 403 a otro arrendador y a un arrendatario, 401, 404,
+  los 400 por valor inválido, y la regla contra la base: publicación que la
+  exige con arrendatario sin verificación, `PENDIENTE`, `RECHAZADA` o
+  `APROBADA`; publicación que no la exige; y que activar la opción por el
+  endpoint hace que la regla empiece a rechazar.
