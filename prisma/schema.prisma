@@ -159,6 +159,11 @@ model Listing {
   isActive   Boolean  @default(true) @map("is_active")
   createdAt  DateTime @default(now()) @map("created_at")
 
+  // Si es true, solo la pueden solicitar arrendatarios con una verificación de
+  // identidad APROBADA (H19, DB-19.1). La decide el dueño. No se guarda en
+  // `users` si alguien está verificado: se consulta en identity_verifications.
+  requiresVerification Boolean @default(false) @map("requires_verification")
+
   images             ListingImage[]
   conversations      Conversation[]
   reservations       Reservation[]
