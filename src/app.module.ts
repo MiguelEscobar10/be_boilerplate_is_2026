@@ -12,6 +12,7 @@ import { NotificationsModule } from '@Notifications';
 import { PaymentsModule } from '@Payments';
 import { PrismaModule } from '@Prisma';
 import { ReservationDecisionsModule } from '@ReservationDecisions';
+import { TenantRatingsModule } from '@TenantRatings';
 import { UsersModule } from '@Users';
 import { VerificationModule } from '@Verification';
 import { validateEnv } from '@Config';
@@ -36,6 +37,7 @@ import { validateEnv } from '@Config';
     VerificationModule,
     DeliveriesModule,
     ReservationDecisionsModule,
+    TenantRatingsModule,
   ],
   providers: [
     {
