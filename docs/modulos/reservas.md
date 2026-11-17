@@ -345,6 +345,205 @@ que tocan el borde no cuentan).
 Quité el `CHECK` del motivo y el índice por separado en la base de pruebas y en
 los dos casos la prueba falla.
 
+## DB-13.1. Consulta de días ocupados (MP4-56)
+
+La consulta que usa el calendario de disponibilidad (H13): qué períodos de una
+publicación están ocupados dentro de un rango de fechas.
+
+### La función `listing_busy_periods`
+
+Migración
+[`20261116232629_create_listing_busy_periods`](../../prisma/migrations/20261116232629_create_listing_busy_periods/migration.sql).
+No crea tablas ni índices: es una función SQL de solo lectura.
+
+```sql
+SELECT * FROM listing_busy_periods(:publicacion, :desde, :hasta);
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `p_listing_id` | `UUID` | Publicación. |
+| `p_from` | `TIMESTAMP(3)` | Inicio del rango, en UTC, incluido. |
+| `p_to` | `TIMESTAMP(3)` | Fin del rango, en UTC, excluido. |
+
+| Columna | Tipo | Descripción |
+|---|---|---|
+| `start_at` | `TIMESTAMP(3)` | Inicio del período ocupado, en UTC. |
+| `end_at` | `TIMESTAMP(3)` | Fin del período ocupado, en UTC. |
+| `source` | `TEXT` | `RESERVA` o `BLOQUEO`. |
+
+Reglas:
+
+- **Ocupan fechas** las reservas `CONFIRMADA` o `EN_CURSO` y los bloqueos del
+  arrendador. Una solicitud `PENDIENTE` no aparta fechas (H13, criterio 2), y
+  `RECHAZADA`, `CANCELADA` y `COMPLETADA` tampoco entran.
+- **Un período entra si se cruza con el rango**: `start_at < p_to AND end_at >
+  p_from`. Tocar el borde no cuenta: una reserva que termina justo en `p_from`
+  no aparece.
+- **Los períodos salen completos**, sin recortarlos al rango, ordenados por
+  inicio. Si una reserva y un bloqueo caen sobre los mismos días salen los
+  dos: la función no fusiona, eso lo decide quien pinta el calendario.
+- **Solo inicio, fin y origen.** No devuelve quién reservó ni el motivo del
+  bloqueo, que es lo que BE-13.1 no puede exponer en una ruta pública.
+
+Desde el backend se llama con `$queryRaw`, convirtiendo las fechas a
+`timestamp`:
+
+```ts
+const ocupados = await prisma.$queryRaw<
+  { start_at: Date; end_at: Date; source: 'RESERVA' | 'BLOQUEO' }[]
+>`SELECT * FROM listing_busy_periods(
+    ${publicacionId}::uuid, ${desde}::timestamp, ${hasta}::timestamp)`;
+```
+
+### Índices
+
+No se agrega ninguno. La función usa los dos que ya existen:
+
+- `reservations_listing_id_status_start_at_end_at_idx` (DB-03.1) para las
+  reservas.
+- `availability_blocks_listing_id_start_at_end_at_idx` (DB-14.1) para los
+  bloqueos.
+
+Como la función es `LANGUAGE sql` y `STABLE`, Postgres la expande dentro de la
+consulta que la llama y el plan muestra los dos índices. La prueba lo comprueba
+con `EXPLAIN`.
+
+### Decisiones
+
+- **Una función en la base y no una consulta en el repositorio.** Es lo mismo
+  que hizo DB-22.1 con el reporte de ocupación: la regla de qué ocupa fechas
+  queda en un solo lugar y se prueba sin levantar la API.
+- **No reutiliza `listing_day_occupancy` de DB-22.1.** Esa función responde
+  otra pregunta (día por día, en hora de El Salvador y contando `COMPLETADA`,
+  para el reporte). El calendario necesita los períodos con su hora exacta y
+  solo lo que ocupa fechas hacia adelante.
+- **Rango en UTC.** La función compara contra las columnas tal como están
+  guardadas. Convertir el `desde` y `hasta` de la API (fechas en hora local) a
+  UTC es trabajo de BE-13.1.
+
+### Cómo revertir la migración
+
+```sql
+DROP FUNCTION "listing_busy_periods"(UUID, TIMESTAMP(3), TIMESTAMP(3));
+```
+
+### Prueba
+
+[`test/availability.busy-periods.e2e-spec.ts`](../../test/availability.busy-periods.e2e-spec.ts)
+(`npm run test:e2e`, contra la base `_test`): publicación sin nada; reservas
+`CONFIRMADA` y `EN_CURSO` y bloqueos con su origen y en orden; `PENDIENTE`,
+`RECHAZADA`, `CANCELADA` y `COMPLETADA` no ocupan; lo que queda fuera del rango
+o solo toca el borde no entra y lo que cruza el borde sale completo; un período
+que cubre todo el rango; no mezcla otra publicación; reserva y bloqueo sobre
+los mismos días; no expone columnas de más; y usa los dos índices sin
+duplicarlos.
+
+## BE-13.1. Consulta de disponibilidad (MP4-57)
+
+Endpoint que usa el calendario del detalle de un bien (H13) para saber qué
+días están ocupados.
+
+```
+src/availability/
+  controllers/availability.controller.ts   AvailabilityController
+  services/availability.service.ts         valida el rango y arma la respuesta
+  services/local-time.ts                   fechas en hora de El Salvador
+  repositories/availability.repository.ts  llama a listing_busy_periods (DB-13.1)
+  dto/                                     query y respuesta
+```
+
+Es un módulo aparte (`AvailabilityModule`, alias `@Availability`) y no parte
+de publicaciones ni de reservas, porque ahí también va a ir el bloqueo de
+fechas de BE-14.1. Importa `ListingsModule` para resolver el 404.
+
+### `GET /api/v1/publicaciones/{id}/disponibilidad`
+
+Ruta **pública** (`@Public()`), sin body.
+
+| Query | Obligatorio | Descripción |
+|---|---|---|
+| `desde` | sí | Primer día del rango, `AAAA-MM-DD`, incluido. |
+| `hasta` | sí | Último día del rango, `AAAA-MM-DD`, incluido. |
+
+```
+GET /api/v1/publicaciones/7c1e0f3a-.../disponibilidad?desde=2026-11-01&hasta=2026-11-30
+```
+
+```json
+{
+  "publicacionId": "7c1e0f3a-2b4d-4c6e-8f90-a1b2c3d4e5f6",
+  "desde": "2026-11-01",
+  "hasta": "2026-11-30",
+  "ocupados": [
+    { "inicio": "2026-11-12T09:00:00-06:00", "fin": "2026-11-12T12:00:00-06:00", "origen": "RESERVA" },
+    { "inicio": "2026-11-20T00:00:00-06:00", "fin": "2026-11-22T00:00:00-06:00", "origen": "BLOQUEO" }
+  ]
+}
+```
+
+- `ocupados` trae las reservas `CONFIRMADA` o `EN_CURSO` y los bloqueos que se
+  cruzan con el rango, en orden por inicio. **Lo que no aparece está libre.**
+  Una solicitud `PENDIENTE` no aparece.
+- Cada período es `[inicio, fin)`: el `fin` no está incluido. Un bloqueo con
+  `fin` el 22 a las 00:00 deja libre el 22.
+- Los períodos salen completos aunque crucen el borde del rango, y si una
+  reserva y un bloqueo caen sobre los mismos días salen los dos. El frontend
+  es quien marca los días.
+- No devuelve quién reservó ni el motivo del bloqueo.
+
+| Estado | Cuándo |
+|---|---|
+| 200 | Rango válido y publicación activa, aunque no tenga nada ocupado (`ocupados: []`). |
+| 400 | Falta `desde` o `hasta`, el formato no es `AAAA-MM-DD`, la fecha no existe (`2026-02-30`), `hasta` es anterior a `desde`, el rango pasa de 92 días, viene un parámetro que no es de esta query o el id no es un UUID. |
+| 404 | La publicación no existe o está desactivada. |
+
+Los errores tienen la forma estándar de Nest, como el resto de la API:
+`{ "statusCode": 400, "message": "...", "error": "Bad Request" }`.
+
+### Decisiones
+
+- **Fechas en hora de El Salvador.** `desde=2026-11-01` es el 1 de noviembre a
+  las 00:00 de aquí, que en la base (UTC) son las 06:00. El Salvador está en
+  UTC-6 todo el año, sin horario de verano, así que la conversión es un
+  desfase fijo (`services/local-time.ts`) y no hace falta una librería de
+  zonas horarias. La respuesta va con `-06:00`, como en el contrato. Es la
+  misma zona que usa el reporte de ocupación de BE-22.1.
+- **`hasta` va incluido.** `desde=2026-11-01&hasta=2026-11-30` es noviembre
+  completo: una reserva del 30 por la noche entra, aunque en UTC ya sea 1 de
+  diciembre. Hay prueba de ese borde.
+- **92 días como máximo, contando los dos extremos.** Alcanza para tres meses
+  seguidos de calendario (31 + 31 + 30). El calendario pide de mes en mes.
+- **Primero se valida el rango y después la publicación.** Un rango inválido
+  da 400 aunque la publicación no exista, sin tocar la base.
+- **El 404 es el de publicaciones.** Se reutiliza `ListingsService.findById`,
+  así que una publicación inactiva responde igual que en `GET
+  /publicaciones/{id}`.
+- **Los ids son UUID**, no enteros como en el ejemplo del brief (`17`), igual
+  que en el resto del proyecto.
+
+### Pruebas
+
+- **Unitarias**
+  ([`availability.service.spec.ts`](../../src/availability/services/availability.service.spec.ts),
+  `npm test`): la conversión de fechas (inicio del día, fechas que no existen,
+  año bisiesto, formato con `-06:00`), el rango que se le pasa al repositorio,
+  la forma de la respuesta, 92 días sí y 93 no, `hasta` anterior a `desde`, y
+  que con un rango inválido o una publicación inexistente no se consulta la
+  disponibilidad.
+- **E2e** ([`test/availability.e2e-spec.ts`](../../test/availability.e2e-spec.ts),
+  `npm run test:e2e`): la app completa contra la base `_test`.
+  - Sin token responde 200.
+  - `CONFIRMADA`, `EN_CURSO` y bloqueos aparecen en orden y en hora local;
+    `PENDIENTE`, `RECHAZADA`, `CANCELADA` y `COMPLETADA` no.
+  - La respuesta no contiene ids de usuarios ni el motivo del bloqueo.
+  - Bordes del rango en hora local, rango de un día y de 92 días.
+  - Todos los casos de 400 y de 404, y que `GET /publicaciones/{id}` sigue
+    respondiendo.
+
+Las reservas de la prueba se crean directo en la base con el estado que cada
+caso necesita, porque BE-03.1 y BE-04.1 todavía no están en `main`.
+
 ## BE-04.1. Aprobación y rechazo con control de concurrencia (MP4-53)
 
 El arrendador ve las solicitudes de sus publicaciones y las aprueba o rechaza
@@ -513,9 +712,9 @@ servicio de avisos, se llama a `AvisosService.notificar`:
 - **El motivo lo ve el arrendatario en el aviso.** Que además aparezca en "su
   reserva" (H04, criterio 4) depende del detalle de reserva de BE-03.1, que
   tiene que devolver `rejection_reason`.
-- **`AvisosService` se importa de `@Notifications/services`**, porque esta
-  rama salió antes de que entrara el contrato de BE-20.2. Al ponerla al día con
-  `main` pasa a importarse de `@Notifications`.
+- **`AvisosService`, `ModuloOrigen` y `Aviso` se importan de
+  `@Notifications`**, el único lugar de importación que publica el contrato de
+  BE-20.2.
 
 ### Pruebas
 
@@ -549,4 +748,3 @@ los dos casos fallan las pruebas de concurrencia.
 
 Las solicitudes de la prueba se crean directo en la base, porque BE-03.1
 todavía no está en `main`.
-

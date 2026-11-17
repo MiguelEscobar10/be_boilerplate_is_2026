@@ -1,4 +1,4 @@
-import { ModuloOrigen, type Aviso } from '@Notifications/types';
+import { ModuloOrigen, type Aviso } from '@Notifications';
 
 /** Límite del mensaje de un aviso (contrato del servicio de avisos). */
 const MENSAJE_MAX = 500;

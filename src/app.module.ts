@@ -2,14 +2,18 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from '@Auth';
+import { DeliveriesModule } from '@Deliveries';
 import { JwtAuthGuard, RolesGuard } from '@Auth/guards';
+import { AvailabilityModule } from '@Availability';
 import { HealthModule } from '@Health';
 import { ListingsModule } from '@Listings';
 import { MessagingModule } from '@Messaging';
 import { NotificationsModule } from '@Notifications';
+import { PaymentsModule } from '@Payments';
 import { PrismaModule } from '@Prisma';
 import { ReservationDecisionsModule } from '@ReservationDecisions';
 import { UsersModule } from '@Users';
+import { VerificationModule } from '@Verification';
 import { validateEnv } from '@Config';
 
 @Module({
@@ -25,8 +29,12 @@ import { validateEnv } from '@Config';
     UsersModule,
     AuthModule,
     ListingsModule,
+    AvailabilityModule,
     NotificationsModule,
     MessagingModule,
+    PaymentsModule,
+    VerificationModule,
+    DeliveriesModule,
     ReservationDecisionsModule,
   ],
   providers: [

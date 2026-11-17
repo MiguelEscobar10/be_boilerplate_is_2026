@@ -5,9 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-// Cuando entre el contrato de BE-20.2 (#12) estos dos imports pasan a
-// `@Notifications`, que es el único lugar de importación que publica.
-import { AvisosService } from '@Notifications/services';
+import { AvisosService } from '@Notifications';
 import type { Reservation } from '@PrismaClient';
 import type {
   DecideReservationDto,

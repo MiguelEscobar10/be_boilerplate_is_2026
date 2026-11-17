@@ -3,8 +3,8 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import type { AvisosService } from '@Notifications/services';
-import { ModuloOrigen } from '@Notifications/types';
+import type { AvisosService } from '@Notifications';
+import { ModuloOrigen } from '@Notifications';
 import type { Reservation } from '@PrismaClient';
 import {
   CONFLICTO_DISPONIBILIDAD,
