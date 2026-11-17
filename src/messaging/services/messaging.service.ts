@@ -1,6 +1,11 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AvisosService } from '@Notifications/services';
 import { ModuloOrigen } from '@Notifications/types';
+import {
+  conflictoConversacion,
+  motivoSinEscritura,
+  reservaNoEncontrada,
+} from '@Messaging/errors';
 import { ConversationRepository } from '@Messaging/repositories';
 import type { Conversation, Message } from '@PrismaClient';
 
@@ -54,7 +59,50 @@ export class MessagingService {
     return { conversation: raced, created: false };
   }
 
-  /** Guarda el mensaje y avisa al otro participante (H15). */
+  /**
+   * Abre (o recupera) la conversación de la reserva entre quien reservó y el
+   * dueño de la publicación (H16). La puede abrir cualquiera de los dos.
+   *
+   * - Si ya existe se devuelve siempre, aunque la reserva haya terminado, para
+   *   que el historial siga visible.
+   * - Si no existe, solo se crea con la reserva CONFIRMADA o EN_CURSO; si no,
+   *   409 con el motivo.
+   */
+  async openForReservation(
+    reservationId: string,
+    userId: string,
+  ): Promise<{ conversation: Conversation; created: boolean }> {
+    const reservation = await this.conversations.findReservationForParticipant(
+      reservationId,
+      userId,
+    );
+    if (!reservation) throw reservaNoEncontrada();
+
+    const existing = await this.conversations.findByReservation(reservationId);
+    if (existing) return { conversation: existing, created: false };
+
+    const motivo = motivoSinEscritura(reservation.status);
+    if (motivo) throw conflictoConversacion(motivo);
+
+    const created = await this.conversations.createForReservation({
+      reservationId,
+      listingId: reservation.listingId,
+      tenantId: reservation.tenantId,
+      landlordId: reservation.listing.landlordId,
+    });
+    if (created) return { conversation: created, created: true };
+
+    // La otra persona de la reserva la abrió al mismo tiempo: se devuelve esa.
+    const raced = await this.conversations.findByReservation(reservationId);
+    if (!raced) throw new NotFoundException(NO_ENCONTRADA);
+    return { conversation: raced, created: false };
+  }
+
+  /**
+   * Guarda el mensaje y avisa al otro participante (H15 y H16). En la
+   * conversación de una reserva, solo se escribe con la reserva CONFIRMADA o
+   * EN_CURSO (409 si no).
+   */
   async sendMessage(
     conversationId: string,
     authorId: string,
@@ -65,6 +113,11 @@ export class MessagingService {
       authorId,
     );
     if (!conversation) throw new NotFoundException(NO_ENCONTRADA);
+
+    if (conversation.reservation) {
+      const motivo = motivoSinEscritura(conversation.reservation.status);
+      if (motivo) throw conflictoConversacion(motivo);
+    }
 
     const message = await this.conversations.createMessage({
       conversationId,
@@ -80,7 +133,7 @@ export class MessagingService {
       await this.avisos.notificar({
         destinatarioId: recipientId,
         titulo: 'Mensaje nuevo',
-        // Sin el texto del mensaje: solo el nombre del bien (H15).
+        // Sin el texto del mensaje: solo el nombre del bien (H15 y H16).
         mensaje: `Tenés un mensaje nuevo sobre "${conversation.listing.name}".`,
         moduloOrigen: ModuloOrigen.MENSAJERIA,
         referencia: { tipo: 'mensaje', id: message.id },
