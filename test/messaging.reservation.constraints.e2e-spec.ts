@@ -206,6 +206,24 @@ describe('mensajería: conversación de la reserva (DB-16.1)', () => {
     ).rejects.toThrow(/conversations_reservation_participants_check/);
   });
 
+  it.each([
+    ['solo el arrendatario', () => ({ tenantId: otherTenantId })],
+    ['solo el arrendador', () => ({ landlordId: otherLandlordId })],
+    ['solo la publicación', () => ({ listingId: otherListingId })],
+  ])(
+    'también revisa al cambiar %s sin tocar la reserva',
+    async (_case, change) => {
+      const conversation = await reservationConversation();
+
+      await expect(
+        prisma.conversation.update({
+          where: { id: conversation.id },
+          data: change(),
+        }),
+      ).rejects.toThrow(/conversations_reservation_participants_check/);
+    },
+  );
+
   it('una conversación previa se puede asociar a la reserva de las mismas personas', async () => {
     const previous = await reservationConversation({ reservationId: null });
 

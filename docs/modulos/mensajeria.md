@@ -139,12 +139,14 @@ DROP INDEX "conversations_reservation_id_key";
 relacionada con la reserva y las dos personas en los dos sentidos; una sola
 por reserva; cada reserva tiene la suya y conviven con la previa; reserva
 inexistente (FK); arrendatario, arrendador o publicación que no son los de la
-reserva, al crear y al cambiar la reserva; asociar una previa a su reserva;
+reserva, al crear, al cambiar la reserva y al cambiar solo una de las otras
+columnas en un `UPDATE`; asociar una previa a su reserva;
 no se borra una reserva con conversación; y el índice existe sin tablas
 nuevas.
 
 Quité el trigger y el índice por separado en la base de pruebas: sin el
-trigger fallan 4 casos y sin el índice fallan 2.
+trigger fallan 7 casos y sin el índice fallan 2. Con el trigger limitado a
+`UPDATE OF reservation_id` fallan los 3 casos que cambian solo una columna.
 
 ## BE-15.1. Conversaciones y mensajes antes de reservar (MP4-82)
 
