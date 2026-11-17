@@ -373,6 +373,10 @@ model SimulatedPayment {
   @@unique([reservationId, attemptNumber])
   // Historial de intentos de una reserva, más recientes primero.
   @@index([reservationId, createdAt(sort: Desc), id(sort: Desc)])
+  // Pagos por estado en un rango de created_at, para consultas que no pasen
+  // por un arrendador (DB-21.1). listing_income() no lo usa: llega a los
+  // pagos por reserva con simulated_payments_one_approved_per_reservation_key.
+  @@index([status, createdAt])
   @@map("simulated_payments")
 }
 
