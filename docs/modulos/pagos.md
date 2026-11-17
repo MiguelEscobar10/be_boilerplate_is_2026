@@ -53,7 +53,7 @@ La tabla `reservations` no cambia: la relación inversa
 | `simulated_payments_reservation_id_attempt_number_key` | UNIQUE | Un número de intento no se repite dentro de una reserva. |
 | `simulated_payments_one_approved_per_reservation_key` | UNIQUE parcial | `(reservation_id) WHERE status = 'APROBADO'`: un solo pago aprobado por reserva. |
 | `simulated_payments_reservation_id_created_at_id_idx` | Índice | `(reservation_id, created_at DESC, id DESC)`: historial de intentos, el más reciente primero. |
-| `simulated_payments_status_created_at_idx` | Índice | `(status, created_at)`: pagos `APROBADO` por rango de fechas, para los ingresos por bien. Lo agrega [DB-21.1](#db-211-consulta-de-ingresos-por-bien-mp4-115). |
+| `simulated_payments_status_created_at_idx` | Índice | `(status, created_at)`: pagos por estado y rango de fechas, para consultas que no pasen por un arrendador. La consulta de ingresos por bien no lo usa. Lo agrega [DB-21.1](#db-211-consulta-de-ingresos-por-bien-mp4-115). |
 
 Los `CHECK` y el único parcial van escritos a mano al final del
 `migration.sql`, porque Prisma no los modela. Los demás los genera Prisma
@@ -379,7 +379,7 @@ Migración
 
 | Nombre | Tipo | Detalle |
 |---|---|---|
-| `simulated_payments_status_created_at_idx` | Índice | `simulated_payments (status, created_at)`, para filtrar los pagos `APROBADO` por rango. Lo genera Prisma desde `@@index([status, createdAt])`. |
+| `simulated_payments_status_created_at_idx` | Índice | `simulated_payments (status, created_at)`. `listing_income` no lo usa (ver abajo); queda disponible para consultas de pagos por estado y rango de fechas que no pasen por un arrendador. Lo genera Prisma desde `@@index([status, createdAt])`. |
 | `listing_income(p_landlord_id uuid, p_from timestamp, p_to timestamp)` | Función SQL (`LANGUAGE sql STABLE`) | Ingresos por bien del arrendador en el rango. Escrita a mano al final del `migration.sql`, porque Prisma no modela funciones. |
 
 **Parámetros**
@@ -473,6 +473,13 @@ ni con la de la sesión de Postgres.
   probar en la base. La función queda en la migración, se llama con un
   `$queryRaw` corto y se prueba directo contra Postgres. Es `STABLE` porque
   solo lee.
+- **Cómo llega a los pagos.** La función entra por los `listings` del
+  arrendador, pasa a sus `reservations` y llega al pago `APROBADO` de cada
+  reserva con el único parcial `simulated_payments_one_approved_per_reservation_key`
+  (`(reservation_id) WHERE status = 'APROBADO'`); el rango de `created_at` se
+  filtra sobre esas filas. No usa `simulated_payments_status_created_at_idx`:
+  ese índice queda disponible para consultas por rango de fechas que no pasen
+  por un arrendador.
 
 ### Prueba de la consulta
 
