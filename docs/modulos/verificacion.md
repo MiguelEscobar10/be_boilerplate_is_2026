@@ -198,6 +198,9 @@ Cuerpo de la decisión: `{ "decision": "APROBAR" }` o
   respuesta del archivo va con `Cache-Control: private, no-store` para que no
   quede en una caché compartida. La carpeta `UPLOADS_DIR` no se sirve como
   estática (hay prueba).
+- **El documento se entrega con `X-Content-Type-Options: nosniff`**, y si el
+  archivo ya no está en disco la ruta responde un **404** genérico ("El
+  documento no está disponible."), sin la ruta del servidor.
 - **Decisión.** `APROBAR` deja la solicitud `APROBADA`; `RECHAZAR` la deja
   `RECHAZADA` con el motivo si viene (se guarda sin los espacios de los
   extremos). En los dos casos se registran `reviewed_by` y `reviewed_at`.
@@ -225,4 +228,6 @@ Cuerpo de la decisión: `{ "decision": "APROBAR" }` o
   (tipo, caché y que nadie más lo obtenga, ni por ruta estática), aprobar y
   rechazar (y que el arrendatario lo vea), enviar otra después de un rechazo,
   el 409 al decidir otra vez, dos decisiones simultáneas, los 400, 401, 403 y
-  404.
+  404. También prueba el repositorio directo: una segunda llamada a
+  `decide` devuelve `null` sin cambiar la primera decisión, y con el reloj de
+  la aplicación atrasado `reviewed_at` queda igual a `submitted_at`.

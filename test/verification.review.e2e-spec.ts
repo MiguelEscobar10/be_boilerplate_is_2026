@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
@@ -214,7 +214,28 @@ describe('revisión de verificaciones (BE-07.2)', () => {
 
       expect(res.headers['content-type']).toContain('application/pdf');
       expect(res.headers['cache-control']).toBe('private, no-store');
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
       expect(Buffer.compare(res.body as Buffer, PDF)).toBe(0);
+    });
+
+    it('si el archivo falta en disco responde un 404 genérico, sin la ruta del servidor', async () => {
+      const { id } = await submitted();
+      const { documentKey } =
+        await prisma.identityVerification.findUniqueOrThrow({ where: { id } });
+      await unlink(join(uploadsDir, documentKey));
+
+      const res = await get(
+        `/verificaciones/${id}/documento`,
+        reviewer.token,
+      ).expect(404);
+
+      expect(res.body).toEqual({
+        statusCode: 404,
+        message: 'El documento no está disponible.',
+        error: 'Not Found',
+      });
+      expect(JSON.stringify(res.body)).not.toContain(uploadsDir);
+      expect(JSON.stringify(res.body)).not.toContain(documentKey);
     });
 
     it('sirve un PNG como image/png', async () => {
@@ -406,6 +427,88 @@ describe('revisión de verificaciones (BE-07.2)', () => {
         decision: 'APROBAR',
       }).expect(404);
       await decide('12', reviewer.token, { decision: 'APROBAR' }).expect(400);
+    });
+  });
+
+  describe('IdentityVerificationRepository.decide', () => {
+    const repository = () =>
+      import('../src/verification/repositories/index.js').then((m) =>
+        app.get(m.IdentityVerificationRepository),
+      );
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('la segunda decisión sobre la misma solicitud devuelve null y no cambia la primera', async () => {
+      const { id } = await submitted();
+      const other = await newReviewer();
+      const repo = await repository();
+      const pending = await prisma.identityVerification.findUniqueOrThrow({
+        where: { id },
+      });
+
+      const first = await repo.decide(pending, {
+        status: 'APROBADA',
+        reviewedById: reviewer.userId,
+        rejectionReason: null,
+      });
+      // Se llama con la misma copia PENDIENTE, como haría una decisión
+      // simultánea que leyó la solicitud antes de la primera.
+      const second = await repo.decide(pending, {
+        status: 'RECHAZADA',
+        reviewedById: other.userId,
+        rejectionReason: 'Llegó tarde',
+      });
+
+      expect(first?.status).toBe('APROBADA');
+      expect(second).toBeNull();
+      const stored = await prisma.identityVerification.findUniqueOrThrow({
+        where: { id },
+      });
+      expect(stored).toMatchObject({
+        status: 'APROBADA',
+        reviewedById: reviewer.userId,
+        rejectionReason: null,
+      });
+    });
+
+    it('con el reloj de la aplicación atrasado, reviewed_at queda igual a submitted_at', async () => {
+      const { id } = await submitted();
+      const repo = await repository();
+      const pending = await prisma.identityVerification.findUniqueOrThrow({
+        where: { id },
+      });
+      // La aplicación cree que es una hora antes del envío.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(pending.submittedAt.getTime() - 3_600_000));
+
+      const decided = await repo.decide(pending, {
+        status: 'APROBADA',
+        reviewedById: reviewer.userId,
+        rejectionReason: null,
+      });
+
+      expect(decided?.reviewedAt).toEqual(pending.submittedAt);
+    });
+
+    it('con el reloj al día, reviewed_at es la hora de la decisión', async () => {
+      const { id } = await submitted();
+      const repo = await repository();
+      const pending = await prisma.identityVerification.findUniqueOrThrow({
+        where: { id },
+      });
+      const later = new Date(pending.submittedAt.getTime() + 3_600_000);
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(later);
+
+      const decided = await repo.decide(pending, {
+        status: 'APROBADA',
+        reviewedById: reviewer.userId,
+        rejectionReason: null,
+      });
+
+      expect(decided?.reviewedAt).toEqual(later);
     });
   });
 });
