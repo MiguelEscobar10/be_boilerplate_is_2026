@@ -54,6 +54,11 @@ model User {
   identityVerifications         IdentityVerification[] @relation("IdentityVerificationUser")
   reviewedIdentityVerifications IdentityVerification[] @relation("IdentityVerificationReviewer")
 
+  // Calificaciones del bien y del arrendador (DB-17.1): las que escribió como
+  // arrendatario y las que recibió como arrendador.
+  listingRatingsWritten  ListingLandlordRating[] @relation("ListingRatingAuthor")
+  listingRatingsReceived ListingLandlordRating[] @relation("ListingRatingLandlord")
+
   @@map("users")
 }
 
@@ -169,6 +174,8 @@ model Listing {
   conversations      Conversation[]
   reservations       Reservation[]
   availabilityBlocks AvailabilityBlock[]
+  // Calificaciones que recibió el bien (DB-17.1), para su promedio.
+  ratings            ListingLandlordRating[]
 
   @@index([landlordId])
   @@map("listings")
@@ -305,8 +312,10 @@ model Reservation {
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  simulatedPayments SimulatedPayment[]
-  delivery          Delivery?
+  simulatedPayments     SimulatedPayment[]
+  delivery              Delivery?
+  // Calificación del bien y del arrendador de esta reserva (H17, DB-17.1).
+  listingLandlordRating ListingLandlordRating?
 
   // Búsqueda de solapamientos: reservas CONFIRMADA o EN_CURSO de una
   // publicación que se cruzan con un rango.
@@ -477,4 +486,47 @@ model DeliveryPhoto {
 
   @@unique([deliveryId, position])
   @@map("delivery_photos")
+}
+
+// Calificación que el arrendatario le da al bien y a su arrendador al terminar
+// una reserva COMPLETADA (H17). Una sola por reserva. Ver
+// docs/modulos/resenas.md.
+model ListingLandlordRating {
+  id String @id @default(uuid()) @db.Uuid
+
+  // UNIQUE: una reserva se califica una sola vez. RESTRICT, como todo lo que
+  // cuelga de la reserva.
+  reservationId String      @unique @map("reservation_id") @db.Uuid
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+
+  // Arrendatario que califica (el de la reserva).
+  authorId String @map("author_id") @db.Uuid
+  author   User   @relation("ListingRatingAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  // Publicación y arrendador calificados. Se guardan aquí, además de en la
+  // reserva, para promediar por publicación y por arrendador sin pasar por las
+  // reservas. El trigger listing_landlord_ratings_consistency (a mano en la
+  // migración) exige que coincidan con los de la reserva.
+  listingId String  @map("listing_id") @db.Uuid
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Restrict)
+
+  landlordId String @map("landlord_id") @db.Uuid
+  landlord   User   @relation("ListingRatingLandlord", fields: [landlordId], references: [id], onDelete: Restrict)
+
+  // CHECK listing_landlord_ratings_listing_score_check y
+  // listing_landlord_ratings_landlord_score_check (a mano en la migración): de
+  // 1 a 5 cada uno.
+  listingScore  Int @map("listing_score") @db.SmallInt
+  landlordScore Int @map("landlord_score") @db.SmallInt
+
+  // CHECK listing_landlord_ratings_comment_check: si viene, con algún carácter
+  // que no sea espacio en blanco.
+  comment String? @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Promedio del bien y del arrendador.
+  @@index([listingId])
+  @@index([landlordId])
+  @@map("listing_landlord_ratings")
 }
