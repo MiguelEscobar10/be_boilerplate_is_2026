@@ -337,3 +337,97 @@ que tocan el borde no cuentan).
 Quité el `CHECK` del motivo y el índice por separado en la base de pruebas y en
 los dos casos la prueba falla.
 
+## DB-13.1. Consulta de días ocupados (MP4-56)
+
+La consulta que usa el calendario de disponibilidad (H13): qué períodos de una
+publicación están ocupados dentro de un rango de fechas.
+
+### La función `listing_busy_periods`
+
+Migración
+[`20261116232629_create_listing_busy_periods`](../../prisma/migrations/20261116232629_create_listing_busy_periods/migration.sql).
+No crea tablas ni índices: es una función SQL de solo lectura.
+
+```sql
+SELECT * FROM listing_busy_periods(:publicacion, :desde, :hasta);
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `p_listing_id` | `UUID` | Publicación. |
+| `p_from` | `TIMESTAMP(3)` | Inicio del rango, en UTC, incluido. |
+| `p_to` | `TIMESTAMP(3)` | Fin del rango, en UTC, excluido. |
+
+| Columna | Tipo | Descripción |
+|---|---|---|
+| `start_at` | `TIMESTAMP(3)` | Inicio del período ocupado, en UTC. |
+| `end_at` | `TIMESTAMP(3)` | Fin del período ocupado, en UTC. |
+| `source` | `TEXT` | `RESERVA` o `BLOQUEO`. |
+
+Reglas:
+
+- **Ocupan fechas** las reservas `CONFIRMADA` o `EN_CURSO` y los bloqueos del
+  arrendador. Una solicitud `PENDIENTE` no aparta fechas (H13, criterio 2), y
+  `RECHAZADA`, `CANCELADA` y `COMPLETADA` tampoco entran.
+- **Un período entra si se cruza con el rango**: `start_at < p_to AND end_at >
+  p_from`. Tocar el borde no cuenta: una reserva que termina justo en `p_from`
+  no aparece.
+- **Los períodos salen completos**, sin recortarlos al rango, ordenados por
+  inicio. Si una reserva y un bloqueo caen sobre los mismos días salen los
+  dos: la función no fusiona, eso lo decide quien pinta el calendario.
+- **Solo inicio, fin y origen.** No devuelve quién reservó ni el motivo del
+  bloqueo, que es lo que BE-13.1 no puede exponer en una ruta pública.
+
+Desde el backend se llama con `$queryRaw`, convirtiendo las fechas a
+`timestamp`:
+
+```ts
+const ocupados = await prisma.$queryRaw<
+  { start_at: Date; end_at: Date; source: 'RESERVA' | 'BLOQUEO' }[]
+>`SELECT * FROM listing_busy_periods(
+    ${publicacionId}::uuid, ${desde}::timestamp, ${hasta}::timestamp)`;
+```
+
+### Índices
+
+No se agrega ninguno. La función usa los dos que ya existen:
+
+- `reservations_listing_id_status_start_at_end_at_idx` (DB-03.1) para las
+  reservas.
+- `availability_blocks_listing_id_start_at_end_at_idx` (DB-14.1) para los
+  bloqueos.
+
+Como la función es `LANGUAGE sql` y `STABLE`, Postgres la expande dentro de la
+consulta que la llama y el plan muestra los dos índices. La prueba lo comprueba
+con `EXPLAIN`.
+
+### Decisiones
+
+- **Una función en la base y no una consulta en el repositorio.** Es lo mismo
+  que hizo DB-22.1 con el reporte de ocupación: la regla de qué ocupa fechas
+  queda en un solo lugar y se prueba sin levantar la API.
+- **No reutiliza `listing_day_occupancy` de DB-22.1.** Esa función responde
+  otra pregunta (día por día, en hora de El Salvador y contando `COMPLETADA`,
+  para el reporte). El calendario necesita los períodos con su hora exacta y
+  solo lo que ocupa fechas hacia adelante.
+- **Rango en UTC.** La función compara contra las columnas tal como están
+  guardadas. Convertir el `desde` y `hasta` de la API (fechas en hora local) a
+  UTC es trabajo de BE-13.1.
+
+### Cómo revertir la migración
+
+```sql
+DROP FUNCTION "listing_busy_periods"(UUID, TIMESTAMP(3), TIMESTAMP(3));
+```
+
+### Prueba
+
+[`test/availability.busy-periods.e2e-spec.ts`](../../test/availability.busy-periods.e2e-spec.ts)
+(`npm run test:e2e`, contra la base `_test`): publicación sin nada; reservas
+`CONFIRMADA` y `EN_CURSO` y bloqueos con su origen y en orden; `PENDIENTE`,
+`RECHAZADA`, `CANCELADA` y `COMPLETADA` no ocupan; lo que queda fuera del rango
+o solo toca el borde no entra y lo que cruza el borde sale completo; un período
+que cubre todo el rango; no mezcla otra publicación; reserva y bloqueo sobre
+los mismos días; no expone columnas de más; y usa los dos índices sin
+duplicarlos.
+
