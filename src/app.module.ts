@@ -6,6 +6,7 @@ import { DeliveriesModule } from '@Deliveries';
 import { JwtAuthGuard, RolesGuard } from '@Auth/guards';
 import { AvailabilityModule } from '@Availability';
 import { HealthModule } from '@Health';
+import { IncomeModule } from '@Income';
 import { ListingsModule } from '@Listings';
 import { MessagingModule } from '@Messaging';
 import { NotificationsModule } from '@Notifications';
@@ -36,6 +37,7 @@ import { validateEnv } from '@Config';
     VerificationModule,
     DeliveriesModule,
     ReservationDecisionsModule,
+    IncomeModule,
   ],
   providers: [
     {
