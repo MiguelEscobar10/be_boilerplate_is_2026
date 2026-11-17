@@ -116,3 +116,151 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/si_be_boilerplate_te
   npx prisma migrate deploy
 npm run test:e2e
 ```
+
+## DB-04.1. Control transaccional de estados de reserva (MP4-52)
+
+Lo que necesita la base para que aprobar o rechazar una reserva (H04) no deje
+datos inconsistentes: dónde se guarda la decisión y cómo se evita que dos
+aprobaciones simultáneas confirmen reservas que se cruzan.
+
+### Modelo de datos
+
+Migración
+[`20261116231512_add_reservation_decision`](../../prisma/migrations/20261116231512_add_reservation_decision/migration.sql).
+Agrega tres columnas opcionales a `reservations`:
+
+| Columna | Tipo | Nulo | Descripción |
+|---|---|---|---|
+| `decided_at` | `TIMESTAMP(3)` | sí | Fecha de la decisión, en UTC. |
+| `decided_by` | `UUID` | sí | Arrendador que decidió. FK a `users.id`, `ON DELETE RESTRICT`. |
+| `rejection_reason` | `VARCHAR(500)` | sí | Motivo del rechazo, opcional. |
+
+| Brief | Columna en la base | Campo en Prisma |
+|---|---|---|
+| `decidida_at` | `decided_at` | `decidedAt` |
+| `decidida_por` | `decided_by` | `decidedById` (relación `decidedBy`) |
+| `motivo_rechazo` | `rejection_reason` | `rejectionReason` |
+
+Restricciones `CHECK`, escritas a mano al final de la migración:
+
+| Nombre | Regla |
+|---|---|
+| `reservations_decision_pair_check` | `decided_at` y `decided_by` van los dos o ninguno. |
+| `reservations_pending_undecided_check` | Una reserva `PENDIENTE` no tiene decisión. |
+| `reservations_rejection_reason_check` | El motivo solo existe si el estado es `RECHAZADA` y debe tener algún carácter que no sea espacio en blanco (`~ '\S'`). |
+
+En el esquema de Prisma, `Reservation` ahora tiene dos relaciones con `User`,
+así que llevan nombre: `ReservationTenant` (la que ya existía, `tenant`) y
+`ReservationDecidedBy` (`decidedBy`). `User.reservations` sigue siendo las
+reservas del arrendatario; las que decidió están en `User.decidedReservations`.
+La tabla `users` no cambia.
+
+### Índice de solapamientos
+
+No se crea ningún índice: el de DB-03.1,
+`reservations_listing_id_status_start_at_end_at_idx` sobre
+`(listing_id, status, start_at, end_at)`, ya sirve para buscar las reservas
+incompatibles con una aprobación. La prueba comprueba que sigue existiendo,
+que no está duplicado y que el plan de esta consulta lo usa:
+
+```sql
+SELECT id FROM reservations
+WHERE listing_id = :publicacion
+  AND status IN ('CONFIRMADA', 'EN_CURSO')
+  AND start_at < :fin AND end_at > :inicio;
+```
+
+Dos períodos se cruzan si cada uno empieza antes de que termine el otro. Los
+extremos no cuentan: una reserva que termina a las 12:00 no choca con otra que
+empieza a las 12:00.
+
+### Estrategia de aprobación
+
+Para aprobar, BE-04.1 hace todo dentro de **una transacción** y en este orden:
+
+1. **Bloquea la fila de la publicación**:
+   `SELECT id FROM listings WHERE id = :publicacion FOR UPDATE`.
+2. Vuelve a leer la reserva y comprueba que siga `PENDIENTE`. Si no, 409.
+3. Busca reservas `CONFIRMADA` o `EN_CURSO` de esa publicación que se crucen
+   con el período (consulta de arriba) y bloqueos de `availability_blocks` que
+   se crucen. Si hay alguno, 409.
+4. Actualiza la reserva a `CONFIRMADA` con `decided_at` y `decided_by`.
+5. Confirma la transacción. El aviso al arrendatario se envía después, fuera
+   de la transacción (ver el contrato del servicio de avisos).
+
+- **Por qué se bloquea la publicación y no la reserva.** Dos solicitudes que se
+  cruzan son filas distintas: bloquear cada una no impide que las dos
+  transacciones lean "no hay conflicto" y confirmen a la vez. La publicación es
+  la fila que tienen en común. Con el `FOR UPDATE`, la segunda transacción
+  espera a que termine la primera y, cuando sigue, ya ve la reserva confirmada
+  y responde 409.
+- **Sirve con el aislamiento por defecto** (`READ COMMITTED`): cada consulta
+  posterior al bloqueo ve lo que la otra transacción ya confirmó. No hace falta
+  `SERIALIZABLE` ni reintentos.
+- **Todo lo que ocupe fechas debe tomar el mismo bloqueo.** Si BE-14.1 crea un
+  bloqueo de fechas sin bloquear la publicación, puede cruzarse con una
+  aprobación en curso. Lo mismo para cualquier otro cambio de estado que
+  dependa de la disponibilidad.
+- **Rechazar no necesita el bloqueo de la publicación**, porque no ocupa
+  fechas. Basta con un `UPDATE ... WHERE id = :id AND status = 'PENDIENTE'` y
+  revisar que haya cambiado una fila, para que una solicitud no se decida dos
+  veces.
+- **Las otras solicitudes `PENDIENTE` que se cruzan no se tocan** (H04,
+  criterio 7): quedan `PENDIENTE` y, si se intenta aprobarlas, el paso 3
+  encuentra el conflicto.
+
+### Decisiones
+
+- **La base no exige decisión en una reserva `CONFIRMADA` o `RECHAZADA`.** Las
+  reservas anteriores a esta migración no la tienen, y las pruebas de otros
+  módulos crean reservas `CONFIRMADA` directo en la base. Exigirla rompería
+  esas filas. Que toda decisión nueva quede registrada es responsabilidad de
+  BE-04.1.
+- **`RESTRICT` en `decided_by`.** Quien decidió es parte del registro de la
+  reserva, igual que el arrendatario.
+- **El motivo solo en `RECHAZADA`.** Así un motivo no queda colgado en una
+  reserva que después cambia de estado por error. El largo máximo lo da el
+  tipo (`VARCHAR(500)`, 500 caracteres, no bytes). BE-04.1 debe recortarlo con
+  `trim()` y guardar `NULL` si queda vacío, porque la base rechaza un motivo
+  de solo espacios.
+
+### Cómo revertir la migración
+
+Prisma no genera migraciones de reversa. Si hay que deshacerla a mano:
+
+```sql
+ALTER TABLE "reservations"
+  DROP CONSTRAINT "reservations_rejection_reason_check",
+  DROP CONSTRAINT "reservations_pending_undecided_check",
+  DROP CONSTRAINT "reservations_decision_pair_check",
+  DROP CONSTRAINT "reservations_decided_by_fkey",
+  DROP COLUMN "rejection_reason",
+  DROP COLUMN "decided_by",
+  DROP COLUMN "decided_at";
+```
+
+Lo probé en una base aparte con seis reservas, una por estado: al aplicar la
+migración siguen las seis con las columnas nuevas en `NULL`, y al revertir
+siguen las seis con las nueve columnas de DB-03.1. Solo se pierden las
+decisiones registradas, que es lo que la migración agrega.
+
+### Prueba de restricciones
+
+[`test/reservations.decision.constraints.e2e-spec.ts`](../../test/reservations.decision.constraints.e2e-spec.ts)
+(`npm run test:e2e`, contra la base `_test`):
+
+- **Columnas:** una solicitud nueva no tiene decisión; se guardan fecha y autor
+  al confirmar; rechazo con y sin motivo; motivo de 500 caracteres sí y de 501
+  no; motivo vacío o de solo espacios; motivo en una reserva que no está
+  `RECHAZADA`; fecha sin autor y autor sin fecha; `PENDIENTE` con decisión; la
+  FK y el `RESTRICT` de `decided_by`.
+- **Índice:** existe, no está duplicado y la consulta de solapamientos lo usa.
+- **Estrategia de aprobación:** con la secuencia de arriba, de dos aprobaciones
+  simultáneas que se cruzan solo se confirma una y la otra queda `PENDIENTE`;
+  la misma solicitud aprobada dos veces a la vez se decide una sola vez; dos
+  que no se cruzan se confirman las dos; y la segunda transacción espera en el
+  `FOR UPDATE` hasta que termina la primera.
+
+Quité cada `CHECK` por separado en la base de pruebas y en los tres casos la
+prueba falla.
+
