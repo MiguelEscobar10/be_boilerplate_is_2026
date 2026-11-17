@@ -180,7 +180,8 @@ Para aprobar, BE-04.1 hace todo dentro de **una transacción** y en este orden:
 
 1. **Bloquea la fila de la publicación**:
    `SELECT id FROM listings WHERE id = :publicacion FOR UPDATE`.
-2. Vuelve a leer la reserva y comprueba que siga `PENDIENTE`. Si no, 409.
+2. Bloquea la fila de la reserva (`SELECT ... FOR UPDATE`), la vuelve a leer y
+   comprueba que siga `PENDIENTE`. Si no, 409.
 3. Busca reservas `CONFIRMADA` o `EN_CURSO` de esa publicación que se crucen
    con el período (consulta de arriba) y bloqueos de `availability_blocks` que
    se crucen. Si hay alguno, 409.
@@ -205,6 +206,13 @@ Para aprobar, BE-04.1 hace todo dentro de **una transacción** y en este orden:
   fechas. Basta con un `UPDATE ... WHERE id = :id AND status = 'PENDIENTE'` y
   revisar que haya cambiado una fila, para que una solicitud no se decida dos
   veces.
+- **Por eso la aprobación bloquea también la reserva** (paso 2). Como el
+  rechazo no espera en la fila de la publicación, podría colarse entre la
+  lectura del estado y el `UPDATE` final de una aprobación de la misma
+  solicitud. Con la reserva bloqueada, el rechazo espera y después ya no la
+  encuentra `PENDIENTE`. Salió al implementar BE-04.1: sin ese bloqueo, aprobar
+  y rechazar a la vez dejaba un 500 (lo frenaba
+  `reservations_rejection_reason_check`).
 - **Las otras solicitudes `PENDIENTE` que se cruzan no se tocan** (H04,
   criterio 7): quedan `PENDIENTE` y, si se intenta aprobarlas, el paso 3
   encuentra el conflicto.
@@ -536,3 +544,207 @@ Los errores tienen la forma estándar de Nest, como el resto de la API:
 Las reservas de la prueba se crean directo en la base con el estado que cada
 caso necesita, porque BE-03.1 y BE-04.1 todavía no están en `main`.
 
+## BE-04.1. Aprobación y rechazo con control de concurrencia (MP4-53)
+
+El arrendador ve las solicitudes de sus publicaciones y las aprueba o rechaza
+(H04). Aprobar usa la estrategia de DB-04.1 para que nunca queden confirmadas
+dos reservas que se cruzan.
+
+```
+src/reservation-decisions/
+  controllers/landlord-requests.controller.ts      GET  /arrendador/solicitudes
+  controllers/reservation-decision.controller.ts   PATCH /reservas/:id/decision
+  services/reservation-decisions.service.ts        permisos, decisión y aviso
+  services/decision-notice.ts                      arma el aviso al arrendatario
+  repositories/reservation-decision.repository.ts  listado, approve (transacción) y reject
+  errors/decision-errors.ts                        los dos 409 con su `codigo`
+  dto/                                             body, query y respuestas
+```
+
+Es un módulo aparte (`ReservationDecisionsModule`, alias
+`@ReservationDecisions`) del de solicitar reservas (BE-03.1), para que los dos
+se puedan trabajar y mergear sin tocarse. Comparte con él el prefijo
+`/reservas`, pero la única ruta de aquí es `/reservas/:id/decision`.
+
+Las dos rutas piden sesión y rol `ARRENDADOR` (`@Roles`): sin token 401, con
+otro rol 403.
+
+### `GET /api/v1/arrendador/solicitudes`
+
+Solicitudes de las publicaciones **propias**, de la más reciente a la más
+antigua (H04, criterio 1).
+
+| Query | Por defecto | Descripción |
+|---|---|---|
+| `estado` | todas | `PENDIENTE`, `CONFIRMADA`, `RECHAZADA`, `CANCELADA`, `EN_CURSO` o `COMPLETADA`. |
+| `page` | 1 | Página, desde 1. |
+| `limit` | 12 | Solicitudes por página, hasta 50. |
+
+```json
+{
+  "items": [
+    {
+      "id": "0b9d8c7e-...",
+      "estado": "PENDIENTE",
+      "publicacion": { "id": "7c1e0f3a-...", "nombre": "Taladro percutor" },
+      "arrendatario": { "id": "a1b2c3d4-...", "nombre": "Ana Martínez" },
+      "inicio": "2026-12-12T15:00:00.000Z",
+      "fin": "2026-12-12T18:00:00.000Z",
+      "costoEstimado": "45.00",
+      "depositoMonto": "20.00",
+      "creadaAt": "2026-11-01T10:00:00.000Z",
+      "decididaAt": null,
+      "motivoRechazo": null
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 12
+}
+```
+
+- Sin solicitudes responde `items: []` y `total: 0`; el texto "Aún no tienes
+  solicitudes" lo pone el frontend.
+- `arrendatario.nombre` es el nombre del perfil. No se devuelve su correo ni su
+  teléfono.
+- `total` cuenta todas las que cumplen el filtro, no solo las de la página.
+- 400 si el `estado` no existe, la paginación es inválida o viene un parámetro
+  que no es de esta query.
+
+### `PATCH /api/v1/reservas/{id}/decision`
+
+```json
+{ "decision": "APROBAR" }
+{ "decision": "RECHAZAR", "motivo": "Fechas no disponibles" }
+```
+
+`motivo` es opcional, solo al rechazar y de hasta 500 caracteres. Se guarda
+sin los espacios de los extremos; si queda vacío se guarda como sin motivo.
+
+```json
+{
+  "id": "0b9d8c7e-...",
+  "estado": "CONFIRMADA",
+  "decididaAt": "2026-11-17T04:10:00.000Z",
+  "motivoRechazo": null
+}
+```
+
+| Estado | `codigo` | Cuándo |
+|---|---|---|
+| 200 | | La solicitud pasó a `CONFIRMADA` o `RECHAZADA`. |
+| 400 | | `decision` no es `APROBAR` ni `RECHAZAR`, `motivo` de más de 500 caracteres o que no es texto, `motivo` al aprobar, una propiedad de más o un id que no es UUID. |
+| 401 | | Sin sesión. |
+| 403 | | La cuenta no es `ARRENDADOR`, o la reserva es de una publicación de otro arrendador ("Esta solicitud no se puede modificar."). |
+| 404 | | La reserva no existe. |
+| 409 | `SOLICITUD_YA_DECIDIDA` | Ya no está `PENDIENTE` ("Esta solicitud no se puede modificar."). |
+| 409 | `CONFLICTO_DISPONIBILIDAD` | Al aprobar, las fechas se cruzan con otra reserva `CONFIRMADA` o `EN_CURSO` ("Conflicto de disponibilidad: ya confirmaste otra reserva en esas fechas.") o con un bloqueo ("Conflicto de disponibilidad: bloqueaste esas fechas."). |
+
+Los dos 409 llevan `codigo` además del `message`, para que el frontend los
+distinga sin leer el texto:
+
+```json
+{
+  "statusCode": 409,
+  "error": "Conflict",
+  "codigo": "CONFLICTO_DISPONIBILIDAD",
+  "message": "Conflicto de disponibilidad: ya confirmaste otra reserva en esas fechas."
+}
+```
+
+Con cualquier error la reserva queda como estaba y no se avisa a nadie.
+
+### Cómo se aprueba
+
+`ReservationDecisionRepository.approve` sigue la estrategia de DB-04.1, todo
+en una transacción:
+
+1. `SELECT ... FOR UPDATE` de la publicación: dos aprobaciones del mismo bien
+   quedan en fila.
+2. `SELECT ... FOR UPDATE` de la reserva y se vuelve a leer: tiene que seguir
+   `PENDIENTE`.
+3. Se buscan reservas `CONFIRMADA` o `EN_CURSO` y bloqueos de la publicación
+   que se crucen con el período. Tocar el borde no cuenta.
+4. Se actualiza a `CONFIRMADA` con `decided_at` y `decided_by`.
+
+Rechazar es un solo `UPDATE ... WHERE id = :id AND status = 'PENDIENTE'`; si no
+cambia ninguna fila, alguien la decidió antes y responde 409.
+
+Aprobar no toca las demás solicitudes `PENDIENTE` que se cruzan (H04, criterio
+7): siguen `PENDIENTE`, aprobarlas da 409 `CONFLICTO_DISPONIBILIDAD` y
+rechazarlas se puede.
+
+### Aviso al arrendatario
+
+Después de guardar, y fuera de la transacción como pide el contrato del
+servicio de avisos, se llama a `AvisosService.notificar`:
+
+| Campo | Valor |
+|---|---|
+| `destinatarioId` | El arrendatario de la reserva. |
+| `titulo` | `Reserva CONFIRMADA` o `Reserva RECHAZADA`. |
+| `mensaje` | `Tu reserva de «Taladro percutor» del 12/12/2026 09:00 al 12/12/2026 12:00 fue rechazada. Motivo: Fechas no disponibles` |
+| `moduloOrigen` | `RESERVAS` |
+| `referencia` | `{ tipo: 'reserva', id }` |
+
+- Las fechas van en hora de El Salvador.
+- **El motivo se recorta en el aviso si no cabe.** El motivo admite 500
+  caracteres y el mensaje de un aviso también, así que con el bien y las fechas
+  no entra completo: se corta con "…". El motivo entero queda en la reserva
+  (`motivoRechazo`).
+- **Si el aviso falla, la decisión no se deshace.** Ya está guardada; el error
+  solo se registra en el log, igual que en mensajería.
+- Dos decisiones simultáneas sobre la misma solicitud dejan un solo aviso,
+  porque solo una llega a guardarse.
+
+### Decisiones
+
+- **403 para una reserva ajena y 404 solo si no existe**, como dice la ficha.
+  El dueño se revisa antes que el estado: una reserva ajena ya decidida
+  responde 403, no 409.
+- **`codigo` en los 409.** Es el mismo formato que usa entregas
+  (`ENTREGA_NO_HABILITADA`). El resto de los errores usa la forma estándar de
+  Nest.
+- **Un motivo al aprobar es 400** en vez de ignorarse: si el frontend lo manda
+  es un error suyo y conviene verlo.
+- **Fechas del listado en UTC** (`...Z`), como las demás respuestas de la API.
+  La pantalla las pasa a hora local.
+- **El motivo lo ve el arrendatario en el aviso.** Que además aparezca en "su
+  reserva" (H04, criterio 4) depende del detalle de reserva de BE-03.1, que
+  tiene que devolver `rejection_reason`.
+- **`AvisosService`, `ModuloOrigen` y `Aviso` se importan de
+  `@Notifications`**, el único lugar de importación que publica el contrato de
+  BE-20.2.
+
+### Pruebas
+
+- **Unitarias**
+  ([`reservation-decisions.service.spec.ts`](../../src/reservation-decisions/services/reservation-decisions.service.spec.ts),
+  `npm test`): el formato de fechas, el texto del aviso con y sin motivo y su
+  recorte a 500 caracteres; aprobar y rechazar; los dos 409 con su `codigo`;
+  404, 403 y el orden entre dueño y estado; que con un error no se avisa; que
+  el aviso va después de guardar y que si falla la decisión se devuelve igual;
+  y el armado del listado.
+- **E2e**
+  ([`test/reservation-decisions.e2e-spec.ts`](../../test/reservation-decisions.e2e-spec.ts),
+  `npm run test:e2e`): la app completa contra la base `_test`.
+  - **Listado:** 401, 403, solo las propias, orden, forma de cada solicitud,
+    que no sale el correo ni el teléfono, filtro por estado, paginación, 12 por
+    defecto y los 400.
+  - **Aprobar:** estado, autor y fecha en la base; el aviso y que aparece en
+    la bandeja del arrendatario; conflicto con `CONFIRMADA`, con `EN_CURSO` y
+    con un bloqueo; lo que no estorba (otros estados, tocar el borde, otra
+    publicación); y que las otras `PENDIENTE` siguen igual.
+  - **Rechazar:** con y sin motivo, motivo recortado, de solo espacios y de
+    500 caracteres, y que las fechas quedan libres.
+  - **Permisos, 409 por ya decidida y 400.**
+  - **Concurrencia:** dos solicitudes que se cruzan aprobadas a la vez (queda
+    una); diez que se cruzan todas (queda una); dos que no se cruzan (quedan
+    las dos); la misma aprobada dos veces a la vez (una decisión y un aviso); y
+    aprobar y rechazar la misma a la vez, repetido con 20 solicitudes.
+
+Quité el `FOR UPDATE` de la publicación y el de la reserva por separado y en
+los dos casos fallan las pruebas de concurrencia.
+
+Las solicitudes de la prueba se crean directo en la base, porque BE-03.1
+todavía no está en `main`.

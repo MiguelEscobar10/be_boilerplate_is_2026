@@ -55,6 +55,8 @@
       "@Verification/*": ["./src/verification/*/index.ts"],
       "@Deliveries": ["./src/deliveries/index.ts"],
       "@Deliveries/*": ["./src/deliveries/*/index.ts"],
+      "@ReservationDecisions": ["./src/reservation-decisions/index.ts"],
+      "@ReservationDecisions/*": ["./src/reservation-decisions/*/index.ts"],
       "@Health": ["./src/health/index.ts"],
       "@Health/*": ["./src/health/*/index.ts"],
       "@Prisma": ["./src/prisma/index.ts"],
