@@ -77,8 +77,10 @@ describe('mensajería: restricciones (DB-15.1)', () => {
   });
 
   afterAll(async () => {
-    // Orden por las FK RESTRICT: conversaciones (y sus mensajes), publicación, usuarios.
+    // Orden por las FK RESTRICT: conversaciones (y sus mensajes), reservas,
+    // publicación, usuarios.
     await prisma.conversation.deleteMany({ where: { listingId } });
+    await prisma.reservation.deleteMany({ where: { listingId } });
     await prisma.listing.deleteMany({ where: { id: listingId } });
     await prisma.user.deleteMany({ where: { email: { endsWith: suffix } } });
     await prisma.$disconnect();
@@ -129,10 +131,22 @@ describe('mensajería: restricciones (DB-15.1)', () => {
   });
 
   it('las conversaciones de reserva no chocan con la previa', async () => {
+    // Desde DB-16.1 reservation_id tiene FK, así que hace falta una reserva real.
+    const reservation = await prisma.reservation.create({
+      data: {
+        listingId,
+        tenantId,
+        startAt: new Date('2026-12-01T15:00:00.000Z'),
+        endAt: new Date('2026-12-02T15:00:00.000Z'),
+        status: 'CONFIRMADA',
+        rentalCost: '20.00',
+        depositAmount: '0.00',
+      },
+    });
     await newConversation();
 
     await expect(
-      newConversation({ reservationId: randomUUID() }),
+      newConversation({ reservationId: reservation.id }),
     ).resolves.toBeDefined();
   });
 
