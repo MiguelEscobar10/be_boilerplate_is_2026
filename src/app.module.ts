@@ -7,6 +7,7 @@ import { HealthModule } from '@Health';
 import { ListingsModule } from '@Listings';
 import { MessagingModule } from '@Messaging';
 import { NotificationsModule } from '@Notifications';
+import { PaymentsModule } from '@Payments';
 import { PrismaModule } from '@Prisma';
 import { UsersModule } from '@Users';
 import { VerificationModule } from '@Verification';
@@ -27,6 +28,7 @@ import { validateEnv } from '@Config';
     ListingsModule,
     NotificationsModule,
     MessagingModule,
+    PaymentsModule,
     VerificationModule,
   ],
   providers: [

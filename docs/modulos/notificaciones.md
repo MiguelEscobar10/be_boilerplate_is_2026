@@ -2,6 +2,7 @@
 
 Avisos informativos asociados a un usuario (historia H10). Los registra el
 servicio de avisos (H20) y se consultan desde la bandeja de cada usuario.
+Contrato del servicio de avisos para los módulos emisores: [`docs/contratos/servicio-avisos.md`](../contratos/servicio-avisos.md).
 
 ## DB-10.1. Entidad de notificaciones por usuario (MP4-106)
 
@@ -175,7 +176,8 @@ de desarrollo.
 ## BE-20.1. Servicio de avisos (MP4-112)
 
 Servicio interno que registra avisos para los demás módulos del backend
-(historia H20). **No es un endpoint público:** el módulo no tiene controllers.
+(historia H20). **No es un endpoint público:** no tiene ruta (el único
+controller del módulo es el de la bandeja, de BE-10.1, y no tiene `POST`).
 El contrato publicado para el equipo, con ejemplos por módulo emisor, queda
 para BE-20.2 (`docs/contratos/servicio-avisos.md`).
 
@@ -301,10 +303,15 @@ quien llama, y la regla está en el JSDoc de `notificar` y del tipo `Aviso`.
 
 ### Swagger y permisos
 
-No hay ruta, así que no hay nada que documentar en Swagger. El criterio de
-permisos se cumple porque el servicio no se puede llamar desde afuera: la
-prueba e2e verifica que `POST /api/v1/notificaciones` y `POST /api/v1/avisos`
-responden 404.
+El servicio de avisos no tiene ruta, así que no hay nada suyo que documentar en
+Swagger. El criterio de permisos se cumple porque no se puede llamar desde
+afuera: la prueba e2e verifica que `POST /api/v1/notificaciones` y
+`POST /api/v1/avisos` responden 404.
+
+Desde BE-10.1 el módulo sí tiene un controller, pero solo para la bandeja
+(GET y PATCH, ver la sección siguiente). No hay `POST`, así que esa prueba
+sigue pasando: Express responde 404 a un método sin ruta antes de llegar al
+guard de JWT.
 
 ### Pruebas
 
@@ -324,3 +331,191 @@ responden 404.
 Usa la misma base de pruebas que la prueba de restricciones, con el helper
 [`test/helpers/test-database.ts`](../../test/helpers/test-database.ts) (mismas
 salvaguardas: base local y nombre terminado en `_test`).
+
+## BE-10.1. Bandeja y lectura (MP4-107)
+
+Endpoints de la bandeja del usuario autenticado (historia H10). Viven en el
+mismo `NotificationsModule` y usan el mismo `NotificationRepository` que el
+servicio de avisos.
+
+```
+src/notifications/
+  controllers/notificaciones.controller.ts   NotificacionesController
+  services/bandeja.service.ts                listar, marcarLeida, contarNoLeidas
+  dto/                                       query y respuestas de la bandeja
+  repositories/notification.repository.ts    + findPageByUser, markAsRead, countUnread
+```
+
+### Endpoints
+
+Todos exigen `Authorization: Bearer <accessToken>` y sirven a cualquier rol
+con sesión (no llevan `@Roles`). Siempre operan sobre las notificaciones del
+usuario del token; el cliente nunca manda un `userId`.
+
+| Método y ruta | Respuesta | Errores |
+|---|---|---|
+| `GET /api/v1/notificaciones?soloNoLeidas&page&limit` | 200 `{ items, total }` | 400, 401 |
+| `GET /api/v1/notificaciones/no-leidas/conteo` | 200 `{ noLeidas }` | 401 |
+| `PATCH /api/v1/notificaciones/{id}/leida` (sin body) | 200 la notificación | 400, 401, 404 |
+
+Están en Swagger (`/api/docs`, etiqueta `notificaciones`), con
+`ApiBearerAuth` y los códigos de la tabla.
+
+#### `GET /api/v1/notificaciones`
+
+| Parámetro | Valores | Por defecto |
+|---|---|---|
+| `soloNoLeidas` | `true` o `false` | `false` |
+| `page` | entero de 1 a 10 000 | `1` |
+| `limit` | entero de 1 a 100 | `20` |
+
+```json
+{
+  "items": [
+    {
+      "id": "0b9d8c7e-6f5a-4b3c-9d2e-1f0a9b8c7d6e",
+      "moduloOrigen": "RESERVAS",
+      "titulo": "Reserva CONFIRMADA",
+      "mensaje": "Tu reserva de «Taladro» fue confirmada.",
+      "referencia": { "tipo": "reserva", "id": "3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b" },
+      "leidaAt": null,
+      "creadaAt": "2026-11-15T10:05:00.000Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+- **Orden:** más recientes primero (`created_at DESC`, y `id DESC` para
+  desempatar).
+- **`total`:** cuenta todas las notificaciones que cumplen el filtro, no solo
+  las de la página. Con `soloNoLeidas=true`, `total` coincide con el conteo de
+  no leídas.
+- **`referencia`:** `{ tipo, id }`, o `null` si el aviso no tiene referencia.
+- **Fechas:** `leidaAt` (`null` si no está leída) y `creadaAt`, en ISO 8601 UTC.
+- Una página después de la última responde 200 con `items: []` y el `total`
+  real.
+
+#### `PATCH /api/v1/notificaciones/{id}/leida`
+
+Sin body. Responde 200 con la notificación en la misma forma que un item de
+la bandeja, con `leidaAt` ya puesto. Si ya estaba leída, responde 200 con la
+fecha de la primera lectura.
+
+#### `GET /api/v1/notificaciones/no-leidas/conteo`
+
+```json
+{ "noLeidas": 3 }
+```
+
+Solo cuenta las no leídas del usuario autenticado. Es lo que consulta el
+contador de la aplicación (cada 30 segundos y con el botón Actualizar, en
+FE-10.1).
+
+### Errores
+
+| Código | Cuándo |
+|---|---|
+| 400 | `page` o `limit` que no son enteros o están fuera de rango, `soloNoLeidas` distinto de `true`/`false`, un parámetro de query que no existe, o un `{id}` que no es UUID. |
+| 401 | Sin token, token inválido o expirado, o cuenta inactiva (guard global de JWT). |
+| 404 | La notificación no existe **o pertenece a otro usuario**. Mismo mensaje en los dos casos. |
+
+El cuerpo de los errores es el formato por defecto de Nest, igual que en
+`auth` y `users`:
+
+```json
+{ "statusCode": 404, "message": "La notificación no existe.", "error": "Not Found" }
+```
+
+El brief pide `{ "codigo", "mensaje" }`, pero el backend no tiene un filtro de
+excepciones que lo produzca. Cambiarlo solo aquí dejaría dos formatos en la
+misma API, y cambiarlo para todos es un cambio compartido que va en otra
+task. En un 400 de validación, `message` es la lista de errores de
+class-validator.
+
+### Decisiones
+
+- **El id es UUID, aunque el ejemplo del brief muestra `"id": 8`.** La clave
+  de `notifications` es `uuid()` desde DB-10.1. La ruta valida el `{id}` con
+  `ParseUUIDPipe`.
+- **Un id mal formado da 400, no 404.** Es un error de sintaxis de la request,
+  como un `page=abc`, y lo detecta la misma capa de validación. No revela nada,
+  porque un texto que no es UUID no puede ser la notificación de nadie. La
+  regla "404 si no existe o es ajena" aplica a los ids bien formados, y ahí
+  los dos casos responden exactamente igual. Sin el pipe, Postgres lanzaría un
+  error de tipo (22P02) y el cliente vería un 500.
+- **404 sin revelar que existe.** El repositorio siempre filtra por `id` y
+  `userId` juntos. Una notificación ajena y una inexistente dan el mismo
+  `null`, así que el servicio no puede distinguirlas aunque quisiera.
+- **PATCH atómico e idempotente.** `markAsRead` hace
+  `updateManyAndReturn({ where: { id, userId, readAt: null } })`: una sola
+  sentencia `UPDATE ... RETURNING` que no puede tocar filas de otro usuario ni
+  otras notificaciones. Si no actualiza nada, lee `{ id, userId }`: si existe,
+  ya estaba leída y se devuelve con su `leidaAt` original; si no, 404. Con
+  llamadas simultáneas, solo una cumple `readAt IS NULL`, así que todas
+  devuelven la misma fecha. `updateManyAndReturn` funciona con
+  `@prisma/adapter-pg` en Prisma 7.10.0 (lo cubre la prueba e2e).
+- **El parámetro extra en el GET da 400 a propósito.** El `ValidationPipe`
+  global usa `forbidNonWhitelisted`. Así, un `?soloNoleidas=true` mal escrito
+  no se ignora en silencio devolviendo la bandeja completa: el cliente recibe
+  el 400 y ve el error. No es un efecto colateral que haya que "arreglar".
+- **`soloNoLeidas` solo acepta `true` o `false`.** Se convierte con un
+  `@Transform` propio. `@Type(() => Boolean)` convertiría `"false"` en `true`,
+  porque todo texto no vacío es truthy.
+- **Tope de `page` en 10 000.** Con `limit` 100, el `OFFSET` más grande es
+  999 900. Sin tope, un `page` enorme haría recorrer la tabla o desbordaría el
+  entero del `OFFSET`.
+- **`total` con el filtro aplicado.** La página y el total se piden en un
+  `$transaction([findMany, count])` con el mismo `where`.
+- **Desempate por `id`.** `created_at` tiene precisión de milisegundos. Sin un
+  segundo criterio, dos avisos del mismo milisegundo podrían cambiar de página
+  entre una consulta y otra.
+- **Uso del índice.** `(user_id, read_at, created_at DESC)` resuelve directo
+  la bandeja de no leídas (`user_id = ? AND read_at IS NULL`, ya ordenada).
+  Para "todas" el índice filtra por `user_id`, pero Postgres ordena después;
+  con el volumen de una bandeja no pesa. No se agregó otro índice: sería una
+  task de DB.
+- **Orden de las rutas.** `GET no-leidas/conteo` se declara antes que las rutas
+  con `:id`. Hoy no choca con `PATCH :id/leida` (otro método y otra cantidad de
+  segmentos), pero así un futuro `GET :id` no se tragaría `no-leidas`.
+- **Sin `userId` en la respuesta.** El repositorio selecciona solo las columnas
+  de la bandeja, y `NotificacionResponseDto.fromEntity` arma la forma pública
+  con los nombres del brief, como `UserResponseDto` en `users`.
+- **`AvisosService` sigue siendo lo único que se exporta.** `BandejaService` es
+  interno del módulo; los demás módulos registran avisos, no leen bandejas.
+
+### Pruebas
+
+- **Unitarias**
+  ([`src/notifications/services/bandeja.service.spec.ts`](../../src/notifications/services/bandeja.service.spec.ts),
+  `npm test`), con el repositorio simulado:
+  - El cálculo de `skip`/`take`.
+  - La forma de la respuesta: nombres del brief, `referencia` `null`, sin
+    `userId`.
+  - `marcarLeida`: la marca, ya leída y conserva la fecha, y el 404.
+  - El conteo.
+- **E2e**
+  ([`test/notifications.bandeja.e2e-spec.ts`](../../test/notifications.bandeja.e2e-spec.ts),
+  `npm run test:e2e`):
+  - **Montaje:** la app completa contra la base `_test`, con el
+    `ValidationPipe` registrado con las mismas opciones que `main.ts` (las
+    pruebas no pasan por `main.ts`).
+  - **Usuarios:** dos usuarios creados con Prisma y tokens firmados con el
+    `JwtService` de la app.
+  - **Datos:** antes de cada prueba se vuelven a sembrar con fechas fijas, así
+    el orden esperado no depende del reloj.
+  - **Casos:**
+    - Solo devuelve las propias, en orden; la forma del item.
+    - `soloNoLeidas`; paginación, la última página y una vacía.
+    - 400 por paginación, filtro o parámetro extra; 401 sin sesión o con token
+      inválido.
+    - PATCH: la marca y deja de estar pendiente, sin afectar las demás; marca
+      repetida, ya leída y llamadas simultáneas con la misma fecha.
+    - Ajena 404 sin modificarla; inexistente 404 con el mismo cuerpo; id mal
+      formado 400.
+    - Conteo por usuario, que baja tras el PATCH y coincide con el `total` de
+      las no leídas.
+
+La base `_test` necesita todas las migraciones (ver *Prueba de
+restricciones*). Después de traer migraciones nuevas de `main`, hay que
+volver a correr `prisma migrate deploy` sobre ella.
