@@ -49,6 +49,7 @@ model User {
   conversationsAsTenant   Conversation[] @relation("ConversationTenant")
   conversationsAsLandlord Conversation[] @relation("ConversationLandlord")
   messages                Message[]
+  registeredDeliveries    Delivery[]
 
   identityVerifications         IdentityVerification[] @relation("IdentityVerificationUser")
   reviewedIdentityVerifications IdentityVerification[] @relation("IdentityVerificationReviewer")
@@ -305,6 +306,7 @@ model Reservation {
   createdAt DateTime @default(now()) @map("created_at")
 
   simulatedPayments SimulatedPayment[]
+  delivery          Delivery?
 
   // Búsqueda de solapamientos: reservas CONFIRMADA o EN_CURSO de una
   // publicación que se cruzan con un rango.
@@ -428,4 +430,51 @@ model IdentityVerification {
   // Cola del REVISOR: solicitudes PENDIENTE en orden de llegada (BE-07.2).
   @@index([status, submittedAt])
   @@map("identity_verifications")
+}
+
+// Entrega del equipo o inicio del uso del espacio (H08). Deja constancia de
+// cuándo empezó el alquiler y en qué estado estaba el bien. Ver
+// docs/modulos/entregas.md.
+model Delivery {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Una sola entrega por reserva (UNIQUE). RESTRICT: la entrega es parte del
+  // registro del alquiler y no desaparece con la reserva.
+  reservationId String      @unique @map("reservation_id") @db.Uuid
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+
+  // Fecha y hora real de la entrega, en UTC. La pone el servidor (BE-08.1).
+  deliveredAt DateTime @default(now()) @map("delivered_at")
+
+  // Estado del bien al entregarlo. Obligatoria, hasta 500 caracteres.
+  // CHECK: al menos un carácter que no sea espacio en blanco.
+  initialConditionNote String @map("initial_condition_note") @db.VarChar(500)
+
+  // Arrendador que registró la entrega. RESTRICT, como en las reservas.
+  registeredById String @map("registered_by") @db.Uuid
+  registeredBy   User   @relation(fields: [registeredById], references: [id], onDelete: Restrict)
+
+  photos DeliveryPhoto[]
+
+  @@index([registeredById])
+  @@map("deliveries")
+}
+
+// Foto opcional del estado inicial (máximo 5 por entrega, posiciones 0 a 4).
+model DeliveryPhoto {
+  id String @id @default(uuid()) @db.Uuid
+
+  // CASCADE: una foto no tiene sentido sin su entrega.
+  deliveryId String   @map("delivery_id") @db.Uuid
+  delivery   Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  // Ruta privada en el almacenamiento (como las fotos de publicaciones).
+  // CHECK: no vacía.
+  path      String
+  // CHECK: de 0 a 4, así no caben más de 5 por entrega junto con el único.
+  position  Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([deliveryId, position])
+  @@map("delivery_photos")
 }
