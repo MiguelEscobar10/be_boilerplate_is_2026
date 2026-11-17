@@ -77,9 +77,6 @@ cliente de Prisma.
 
 ### Qué queda para otras tasks
 
-- **BE-08.1:** `POST /api/v1/reservas/{id}/entrega` (nota y hasta 5 fotos), la
-  transacción con el paso a `EN_CURSO`, el 409 por duplicada y el 422
-  `ENTREGA_NO_HABILITADA` antes de `start_at`. Depende de BE-04.1.
 - **DB-09.1 (Elias):** la devolución y la garantía cuelgan de la reserva
   entregada.
 
@@ -100,3 +97,74 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/si_be_boilerplate_te
   npx prisma migrate deploy
 npm run test:e2e
 ```
+
+## BE-08.1. Registro de entrega e inicio del alquiler (MP4-73)
+
+### Endpoints
+
+| Método | Ruta | Rol | Respuesta |
+|---|---|---|---|
+| `POST` | `/api/v1/reservas/{id}/entrega` | `ARRENDADOR` dueño del bien | `201 { entregaId, reservaId, estadoReserva: "EN_CURSO" }` |
+| `GET` | `/api/v1/reservas/{id}/entrega` | arrendador o arrendatario de la reserva | `200 { entregaId, reservaId, entregadaAt, nota, fotos: [{ orden, url }] }` |
+| `GET` | `/api/v1/reservas/{id}/entrega/fotos/{orden}` | arrendador o arrendatario de la reserva | `200` con la foto |
+
+El `POST` recibe `multipart/form-data` con `nota` (de 1 a 500 caracteres, se
+guarda sin los espacios de los extremos) y hasta 5 fotos opcionales JPG o PNG
+de máximo 5 MB en `fotos` (también se acepta `fotos[]`). La fecha real la pone
+el servidor. Los `GET` los agrega esta task para que FE-08.1 pueda mostrar la
+entrega (`DetalleEntrega`).
+
+### Reglas (en este orden)
+
+1. **400**: falta la nota, está vacía o pasa de 500; más de 5 fotos; una foto de
+   más de 5 MB, que no es JPG ni PNG (por su firma) o que llega en otro campo.
+2. **404**: la reserva no existe. **403**: la cuenta no es `ARRENDADOR` o la
+   reserva no es de un bien suyo (el contrato de BE-08.1 pide 403).
+3. **409**: la reserva ya tiene entrega, o no está `CONFIRMADA` (una
+   `PENDIENTE`, `RECHAZADA`, `EN_CURSO` o `COMPLETADA` no se puede iniciar).
+4. **422 `ENTREGA_NO_HABILITADA`**: todavía no llega `start_at`. El cuerpo trae
+   `codigo` y `disponibleDesde` (ISO 8601) para que el frontend diga desde
+   cuándo se podrá registrar.
+
+Ninguna regla que falle deja datos: ni entrega, ni fotos en disco, ni cambio
+de estado.
+
+### La transacción
+
+Las fotos se escriben primero; después, en una sola transacción, se bloquea
+la fila de la reserva (`SELECT ... FOR UPDATE`), se vuelve a comprobar que esté
+`CONFIRMADA`, se crea la entrega con sus fotos y la reserva pasa a `EN_CURSO`.
+Si dos peticiones llegan a la vez, la segunda espera el bloqueo, ve que la
+reserva ya está `EN_CURSO` (o choca con el `UNIQUE` de `reservation_id`) y
+recibe **409**; sus fotos se borran (hay prueba). Si la transacción falla por
+cualquier motivo, también se borran las fotos ya escritas.
+
+### Decisiones
+
+- **Elegibilidad.** El docx menciona revisar "pago/identidad cuando aplique".
+  La identidad ya se exige al solicitar la reserva (H19), y los criterios de
+  aceptación de H08 no piden un pago aprobado para entregar, así que no se
+  exige. **Pendiente de confirmar** con el equipo: si se decide exigirlo, basta
+  con agregar la consulta de un pago `APROBADO` (`simulated_payments`) antes
+  del paso 3.
+- **Sin depender de BE-04.1 en el código.** La task depende de BE-04.1 (Henry)
+  porque las reservas llegan a `CONFIRMADA` con la aprobación. El registro de la
+  entrega no llama a su código: bloquea la reserva por su cuenta. Si DB-04.1
+  agrega una función común para las transiciones de estado, se puede usar aquí
+  después.
+- **Las fotos se sirven por una ruta protegida**, igual que las de
+  publicaciones pero solo para los dos participantes, con `Cache-Control:
+  private, no-store`.
+
+### Pruebas
+
+- [`src/deliveries/services/deliveries.service.spec.ts`](../../src/deliveries/services/deliveries.service.spec.ts):
+  el orden de las reglas (400, 404, 403, 409, 422), el límite exacto del
+  inicio, los límites de nota y fotos, y que las fotos se borran si la
+  transacción falla.
+- [`test/deliveries.e2e-spec.ts`](../../test/deliveries.e2e-spec.ts): entrega
+  válida con y sin fotos y el paso a `EN_CURSO`, la segunda entrega (409) y dos
+  simultáneas, reservas `PENDIENTE` y `RECHAZADA`, el 422 antes del inicio sin
+  cambiar el estado, los 400, otro arrendador y el arrendatario (403), 401, 404,
+  y la consulta de la entrega y sus fotos por cada participante (y 404 para el
+  resto).

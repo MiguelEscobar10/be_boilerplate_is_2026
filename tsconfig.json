@@ -51,6 +51,8 @@
       "@Payments/*": ["./src/payments/*/index.ts"],
       "@Verification": ["./src/verification/index.ts"],
       "@Verification/*": ["./src/verification/*/index.ts"],
+      "@Deliveries": ["./src/deliveries/index.ts"],
+      "@Deliveries/*": ["./src/deliveries/*/index.ts"],
       "@Health": ["./src/health/index.ts"],
       "@Health/*": ["./src/health/*/index.ts"],
       "@Prisma": ["./src/prisma/index.ts"],
