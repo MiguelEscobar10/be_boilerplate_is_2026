@@ -40,15 +40,27 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  refreshTokens RefreshToken[]
-  notifications Notification[]
-  listings      Listing[]
-  profile       UserProfile?
-  reservations  Reservation[]
+  refreshTokens         RefreshToken[]
+  notifications         Notification[]
+  listings              Listing[]
+  profile               UserProfile?
+  reservations          Reservation[]       @relation("ReservationTenant")
+  // Reservas que este usuario aprobó o rechazó como arrendador (DB-04.1).
+  decidedReservations   Reservation[]       @relation("ReservationDecidedBy")
+  // Bloqueos de fechas que este usuario creó como arrendador (DB-14.1).
+  availabilityBlocks    AvailabilityBlock[]
+  // Calificaciones de arrendatario (DB-18.1): las que escribió como
+  // arrendador y las que recibió como arrendatario.
+  tenantRatingsWritten  TenantRating[]      @relation("TenantRatingAuthor")
+  tenantRatingsReceived TenantRating[]      @relation("TenantRatingTenant")
 
   conversationsAsTenant   Conversation[] @relation("ConversationTenant")
   conversationsAsLandlord Conversation[] @relation("ConversationLandlord")
   messages                Message[]
+  registeredDeliveries    Delivery[]
+
+  identityVerifications         IdentityVerification[] @relation("IdentityVerificationUser")
+  reviewedIdentityVerifications IdentityVerification[] @relation("IdentityVerificationReviewer")
 
   @@map("users")
 }
@@ -156,6 +168,11 @@ model Listing {
   isActive   Boolean  @default(true) @map("is_active")
   createdAt  DateTime @default(now()) @map("created_at")
 
+  // Si es true, solo la pueden solicitar arrendatarios con una verificación de
+  // identidad APROBADA (H19, DB-19.1). La decide el dueño. No se guarda en
+  // `users` si alguien está verificado: se consulta en identity_verifications.
+  requiresVerification Boolean @default(false) @map("requires_verification")
+
   images             ListingImage[]
   conversations      Conversation[]
   reservations       Reservation[]
@@ -196,9 +213,13 @@ model Conversation {
   landlordId String @map("landlord_id") @db.Uuid
   landlord   User   @relation("ConversationLandlord", fields: [landlordId], references: [id], onDelete: Restrict)
 
-  // NULL = conversación previa a la reserva (H15). La FK a reservations la
-  // agrega DB-16.1 cuando exista la tabla de reservas (DB-03.1).
-  reservationId String? @map("reservation_id") @db.Uuid
+  // NULL = conversación previa a la reserva (H15). Con valor, es la
+  // conversación de esa reserva (H16, DB-16.1): una sola por reserva y con
+  // las mismas dos personas (trigger conversations_reservation_participants,
+  // escrito a mano en la migración). RESTRICT: el historial de una reserva no
+  // se pierde.
+  reservationId String?      @unique @map("reservation_id") @db.Uuid
+  reservation   Reservation? @relation(fields: [reservationId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -280,7 +301,7 @@ model Reservation {
   listing   Listing @relation(fields: [listingId], references: [id], onDelete: Restrict)
 
   tenantId String @map("tenant_id") @db.Uuid
-  tenant   User   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant   User   @relation("ReservationTenant", fields: [tenantId], references: [id], onDelete: Restrict)
 
   // Período solicitado, en UTC. El CHECK reservations_period_check exige
   // start_at < end_at (la migración lo agrega porque Prisma no modela CHECK).
@@ -296,7 +317,21 @@ model Reservation {
 
   createdAt DateTime @default(now()) @map("created_at")
 
+  // Decisión del arrendador (H04, DB-04.1). Las tres columnas son NULL
+  // mientras la reserva está PENDIENTE. Los CHECK van a mano en la migración:
+  // fecha y autor van juntos, una PENDIENTE no tiene decisión y el motivo
+  // solo existe en una RECHAZADA y no puede ser solo espacios.
+  decidedAt       DateTime? @map("decided_at")
+  // RESTRICT: quien decidió es parte del registro de la reserva.
+  decidedById     String?   @map("decided_by") @db.Uuid
+  decidedBy       User?     @relation("ReservationDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
+  rejectionReason String?   @map("rejection_reason") @db.VarChar(500)
+
   simulatedPayments SimulatedPayment[]
+  // Conversación de la reserva entre arrendatario y arrendador (H16, DB-16.1).
+  conversation      Conversation?
+  delivery          Delivery?
+  tenantRating      TenantRating?
 
   // Búsqueda de solapamientos: reservas CONFIRMADA o EN_CURSO de una
   // publicación que se cruzan con un rango.
@@ -305,8 +340,8 @@ model Reservation {
 }
 
 // Período en el que el arrendador marca una publicación como no disponible
-// (H14). DB-14.1 completa la tabla con `created_by`, `created_at` y el índice
-// de traslapes. Ver docs/modulos/reservas.md.
+// (H14). La tabla nace en DB-03.1 y DB-14.1 la completa con `created_by`,
+// `created_at` y el índice de traslapes. Ver docs/modulos/reservas.md.
 model AvailabilityBlock {
   id String @id @default(uuid()) @db.Uuid
 
@@ -317,8 +352,19 @@ model AvailabilityBlock {
   // Período bloqueado, en UTC. CHECK start_at < end_at en la migración.
   startAt DateTime @map("start_at")
   endAt   DateTime @map("end_at")
+  // CHECK availability_blocks_reason_check (a mano en la migración de
+  // DB-14.1): si viene, debe tener algún carácter que no sea espacio en blanco.
   reason  String?  @db.VarChar(200)
 
+  // Arrendador que creó el bloqueo. NULL solo en filas que no pasaron por
+  // BE-14.1 (pruebas de otros módulos); el servicio lo guarda siempre.
+  // RESTRICT, como el dueño de la publicación.
+  createdById String?  @map("created_by") @db.Uuid
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Bloqueos de una publicación que se cruzan con un rango.
+  @@index([listingId, startAt, endAt])
   @@map("availability_blocks")
 }
 
@@ -370,4 +416,133 @@ model SimulatedPayment {
   // pagos por reserva con simulated_payments_one_approved_per_reservation_key.
   @@index([status, createdAt])
   @@map("simulated_payments")
+}
+
+// Estados de una solicitud de verificación de identidad (sección 2.3 del
+// documento de historias). En español, como el `estado` que viaja en la API.
+enum IdentityVerificationStatus {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+}
+
+// Solicitud de verificación de identidad de un arrendatario (H07). Cada envío
+// es una fila nueva: una RECHAZADA no se reabre, se envía otra. Una persona está
+// verificada si tiene alguna en APROBADA (H19). Ver docs/modulos/verificacion.md.
+model IdentityVerification {
+  id String @id @default(uuid()) @db.Uuid
+
+  // CASCADE: el documento es un dato personal del usuario y no tiene sentido
+  // conservarlo si se borra su cuenta.
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation("IdentityVerificationUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Ruta privada del documento en el almacenamiento (no es una URL pública).
+  // Solo la lee el servicio para entregárselo al REVISOR por una ruta protegida
+  // (BE-07.2); ningún endpoint público la devuelve.
+  // CHECK: al menos un carácter que no sea espacio en blanco.
+  documentKey String @map("document_key") @db.VarChar(255)
+
+  status IdentityVerificationStatus @default(PENDIENTE)
+
+  // Motivo opcional que escribe el REVISOR al rechazar. CHECK: solo en
+  // RECHAZADA y, si viene, con algún carácter que no sea espacio en blanco.
+  rejectionReason String? @map("rejection_reason") @db.VarChar(500)
+
+  // Quién decidió y cuándo. CHECK: ambos NULL mientras está PENDIENTE y ambos
+  // presentes en APROBADA o RECHAZADA. RESTRICT: la decisión es un registro y
+  // no pierde a su revisor.
+  reviewedById String?   @map("reviewed_by") @db.Uuid
+  reviewedBy   User?     @relation("IdentityVerificationReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+  reviewedAt   DateTime? @map("reviewed_at")
+
+  submittedAt DateTime @default(now()) @map("submitted_at")
+
+  // Índice único parcial (user_id) WHERE status = 'PENDIENTE' (una sola
+  // solicitud pendiente por usuario): escrito a mano en la migración.
+
+  // Solicitudes de un usuario, más recientes primero (la "última" de BE-07.1).
+  @@index([userId, submittedAt(sort: Desc)])
+  // Cola del REVISOR: solicitudes PENDIENTE en orden de llegada (BE-07.2).
+  @@index([status, submittedAt])
+  @@map("identity_verifications")
+}
+
+// Entrega del equipo o inicio del uso del espacio (H08). Deja constancia de
+// cuándo empezó el alquiler y en qué estado estaba el bien. Ver
+// docs/modulos/entregas.md.
+model Delivery {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Una sola entrega por reserva (UNIQUE). RESTRICT: la entrega es parte del
+  // registro del alquiler y no desaparece con la reserva.
+  reservationId String      @unique @map("reservation_id") @db.Uuid
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+
+  // Fecha y hora real de la entrega, en UTC. La pone el servidor (BE-08.1).
+  deliveredAt DateTime @default(now()) @map("delivered_at")
+
+  // Estado del bien al entregarlo. Obligatoria, hasta 500 caracteres.
+  // CHECK: al menos un carácter que no sea espacio en blanco.
+  initialConditionNote String @map("initial_condition_note") @db.VarChar(500)
+
+  // Arrendador que registró la entrega. RESTRICT, como en las reservas.
+  registeredById String @map("registered_by") @db.Uuid
+  registeredBy   User   @relation(fields: [registeredById], references: [id], onDelete: Restrict)
+
+  photos DeliveryPhoto[]
+
+  @@index([registeredById])
+  @@map("deliveries")
+}
+
+// Foto opcional del estado inicial (máximo 5 por entrega, posiciones 0 a 4).
+model DeliveryPhoto {
+  id String @id @default(uuid()) @db.Uuid
+
+  // CASCADE: una foto no tiene sentido sin su entrega.
+  deliveryId String   @map("delivery_id") @db.Uuid
+  delivery   Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  // Ruta privada en el almacenamiento (como las fotos de publicaciones).
+  // CHECK: no vacía.
+  path      String
+  // CHECK: de 0 a 4, así no caben más de 5 por entrega junto con el único.
+  position  Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([deliveryId, position])
+  @@map("delivery_photos")
+}
+
+// Calificación que el arrendador le da al arrendatario de una reserva
+// COMPLETADA (H18). Una sola por reserva. Ver docs/modulos/resenas.md.
+model TenantRating {
+  id String @id @default(uuid()) @db.Uuid
+
+  // UNIQUE: una reserva se califica una sola vez. RESTRICT, como todo lo que
+  // cuelga de la reserva.
+  reservationId String      @unique @map("reservation_id") @db.Uuid
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+
+  // Arrendador que califica.
+  authorId String @map("author_id") @db.Uuid
+  author   User   @relation("TenantRatingAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  // Arrendatario calificado. Se guarda aquí, además de en la reserva, para
+  // listar las calificaciones de una persona sin pasar por sus reservas.
+  tenantId String @map("tenant_id") @db.Uuid
+  tenant   User   @relation("TenantRatingTenant", fields: [tenantId], references: [id], onDelete: Restrict)
+
+  // CHECK tenant_ratings_score_check (a mano en la migración): de 1 a 5.
+  score   Int     @db.SmallInt
+  // CHECK tenant_ratings_comment_check: si viene, con algún carácter que no
+  // sea espacio en blanco.
+  comment String? @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Calificaciones recibidas por un arrendatario, más recientes primero.
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("tenant_ratings")
 }
