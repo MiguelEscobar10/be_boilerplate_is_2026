@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -37,6 +38,8 @@ const ID_PIPE = new ParseUUIDPipe({
   exceptionFactory: () =>
     new BadRequestException('El id de la verificación debe ser un UUID.'),
 });
+
+const DOCUMENT_UNAVAILABLE = 'El documento no está disponible.';
 
 /**
  * Revisión manual de documentos de identidad (H07, BE-07.2).
@@ -76,17 +79,39 @@ export class ReviewController {
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiProduces('application/pdf', 'image/png', 'image/jpeg')
   @ApiOkResponse({ description: 'El archivo, con su Content-Type.' })
-  @ApiNotFoundResponse({ description: 'La solicitud no existe.' })
+  @ApiNotFoundResponse({
+    description: 'La solicitud no existe o su archivo ya no está disponible.',
+  })
   async document(
     @Param('id', ID_PIPE) id: string,
     @Res() res: Response,
   ): Promise<void> {
     const verification = await this.reviewService.findForDocument(id);
+    // Si el archivo falta en disco, sendFile respondería con su propio error,
+    // que incluye la ruta absoluta del servidor. Se responde un 404 genérico.
+    if (!(await this.storage.exists(verification.documentKey))) {
+      throw new NotFoundException(DOCUMENT_UNAVAILABLE);
+    }
     res.type(this.storage.contentType(verification.documentKey));
     // Que el navegador no lo guarde en caché compartida: es un dato personal.
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('Content-Disposition', 'inline');
-    res.sendFile(this.storage.absolutePath(verification.documentKey));
+    // El tipo lo decide el servidor (por la firma, al subirlo): que el
+    // navegador no intente adivinar otro.
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.sendFile(
+      this.storage.absolutePath(verification.documentKey),
+      (error) => {
+        // Por si el archivo desaparece entre la comprobación y el envío.
+        if (error && !res.headersSent) {
+          res.status(404).json({
+            statusCode: 404,
+            message: DOCUMENT_UNAVAILABLE,
+            error: 'Not Found',
+          });
+        }
+      },
+    );
   }
 
   @Patch(':id/decision')
