@@ -181,7 +181,7 @@ describe('mensajería: conversación de la reserva (BE-16.1)', () => {
         open(reservationId, 'landlord'),
       ]);
 
-      expect([a.status, b.status].sort()).toEqual([200, 201]);
+      expect([a.status, b.status].sort((x, y) => x - y)).toEqual([200, 201]);
       expect(a.body.id).toBe(b.body.id);
       expect(
         await prisma.conversation.count({ where: { reservationId } }),

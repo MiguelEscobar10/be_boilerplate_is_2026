@@ -90,6 +90,9 @@ export class MessagingController {
     type: ConversationCreatedDto,
     description: 'Ya existía; se devuelve esa.',
   })
+  @ApiForbiddenResponse({
+    description: 'Solo un arrendatario o un arrendador abre la conversación.',
+  })
   @ApiNotFoundResponse({
     description: 'La reserva no existe o no participás en ella.',
   })
