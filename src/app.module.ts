@@ -8,6 +8,7 @@ import { IncomeModule } from '@Income';
 import { ListingsModule } from '@Listings';
 import { MessagingModule } from '@Messaging';
 import { NotificationsModule } from '@Notifications';
+import { PaymentsModule } from '@Payments';
 import { PrismaModule } from '@Prisma';
 import { UsersModule } from '@Users';
 import { validateEnv } from '@Config';
@@ -27,6 +28,7 @@ import { validateEnv } from '@Config';
     ListingsModule,
     NotificationsModule,
     MessagingModule,
+    PaymentsModule,
     IncomeModule,
   ],
   providers: [
