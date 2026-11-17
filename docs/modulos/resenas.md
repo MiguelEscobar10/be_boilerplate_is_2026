@@ -107,3 +107,84 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/si_be_boilerplate_te
   npx prisma migrate deploy
 npm run test:e2e
 ```
+
+## BE-18.1. Calificar al arrendatario (MP4-94)
+
+El arrendador califica al arrendatario de una reserva `COMPLETADA` de uno de
+sus bienes (H18). Usa la tabla `tenant_ratings` de DB-18.1.
+
+```
+src/tenant-ratings/
+  controllers/tenant-ratings.controller.ts   POST /reservas/:id/calificacion-arrendatario
+  services/tenant-ratings.service.ts         dueño, estado y respuesta
+  repositories/tenant-rating.repository.ts   lectura de la reserva e inserción
+  errors/rating-errors.ts                    el 409 y el 422 con su `codigo`
+  dto/
+```
+
+Módulo `TenantRatingsModule`, alias `@TenantRatings`.
+
+### `POST /api/v1/reservas/{id}/calificacion-arrendatario`
+
+Solo rol `ARRENDADOR`.
+
+```json
+{ "puntaje": 5, "comentario": "Devolvió el equipo a tiempo" }
+```
+
+- `puntaje`: número entero de 1 a 5. Un `"5"` en texto o un `4.5` es 400.
+- `comentario`: opcional, hasta 500 caracteres. Se guarda recortado; si queda
+  vacío, sin comentario.
+
+Respuesta `201 { "id": "c0ffee00-..." }`.
+
+| Estado | `codigo` | Cuándo |
+|---|---|---|
+| 201 | | Se guardó. El arrendatario sale de la reserva, no del body. |
+| 400 | | Puntaje que falta, fuera de 1 a 5 o no entero; comentario de más de 500 caracteres o que no es texto; una propiedad de más; id que no es UUID. El mensaje dice qué corregir (H18, criterio 5). |
+| 401 | | Sin sesión. |
+| 403 | | La cuenta no es `ARRENDADOR`. |
+| 404 | | La reserva no existe o es de un bien de otro arrendador ("La reserva no existe."). |
+| 409 | `RESERVA_YA_CALIFICADA` | Ya fue calificada ("Esta reserva ya fue calificada."). |
+| 422 | `RESERVA_NO_COMPLETADA` | No está `COMPLETADA` ("Solo puedes calificar al arrendatario de una reserva COMPLETADA."). |
+
+### Decisiones
+
+- **Una reserva ajena es 404, no 403**, como pide la ficha: así no se revela
+  que la reserva existe. El dueño se revisa antes que el estado, para que una
+  reserva ajena sin terminar tampoco dé pistas (404, no 422).
+- **El 409 lo da el índice único de DB-18.1**, no una consulta previa. Con dos
+  envíos a la vez, la base deja pasar uno y el otro recibe 409 (hay prueba).
+- **El `arrendatario_id` se copia de la reserva.** No viene en el body, así
+  que nadie puede calificar a otra persona.
+- **Sin aviso al arrendatario.** La historia y el contrato del servicio de
+  avisos no lo piden.
+
+### Cambio en "Mis solicitudes" (BE-04.1)
+
+Cada solicitud de `GET /api/v1/arrendador/solicitudes` trae ahora
+`arrendatarioCalificado: true | false`. El formulario de FE-18.1 muestra
+"Calificar al arrendatario" solo en las `COMPLETADA` que lo tienen en
+`false`, y la tabla del wireframe (`?estado=COMPLETADA`) sale de esa misma
+ruta. Ver la sección BE-04.1 en [`reservas.md`](./reservas.md).
+
+### Pruebas
+
+- **Unitarias**
+  ([`tenant-ratings.service.spec.ts`](../../src/tenant-ratings/services/tenant-ratings.service.spec.ts),
+  `npm test`): lo que se guarda, comentario vacío como `null`, 404 por
+  inexistente y por ajena con el mismo texto, el orden entre dueño y estado,
+  422 en cada estado que no es `COMPLETADA`, el 409 y los errores que se
+  propagan.
+- **E2e** ([`test/tenant-ratings.e2e-spec.ts`](../../test/tenant-ratings.e2e-spec.ts),
+  `npm run test:e2e`): la app completa contra la base `_test`. Lo guardado
+  en la base, puntajes 1 y 5, comentario vacío, recortado y de 500
+  caracteres; el 409 y dos envíos a la vez; el 422 en cada estado; 401, 403
+  y los dos 404; todos los 400; y que el panel de solicitudes marca las
+  reservas ya calificadas.
+
+Las reservas `COMPLETADA` de la prueba se crean directo en la base, porque
+llegar a ese estado requiere la devolución (BE-09.2), que todavía no está en
+`main`. Quité la regla de `COMPLETADA` y la del dueño por separado y en los
+dos casos la prueba falla.
+
