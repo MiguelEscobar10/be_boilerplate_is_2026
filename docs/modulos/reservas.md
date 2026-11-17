@@ -748,3 +748,117 @@ los dos casos fallan las pruebas de concurrencia.
 
 Las solicitudes de la prueba se crean directo en la base, porque BE-03.1
 todavía no está en `main`.
+
+## BE-14.1. Bloqueo de fechas (MP4-61)
+
+El arrendador marca los períodos en que su bien no está disponible (H14).
+Vive en `AvailabilityModule`, junto al calendario de BE-13.1:
+
+```
+src/availability/
+  controllers/blocks.controller.ts      POST y GET /publicaciones/:id/bloqueos
+  services/blocks.service.ts            fechas, dueño y respuesta
+  repositories/block.repository.ts      transacción con bloqueo de la publicación
+  errors/block-errors.ts                el 409 con su `codigo`
+  dto/create-block.dto.ts, dto/block-response.dto.ts
+```
+
+Las dos rutas piden sesión y rol `ARRENDADOR`: sin token 401, con otro rol 403.
+
+### `POST /api/v1/publicaciones/{id}/bloqueos`
+
+```json
+{ "inicio": "2026-11-20T00:00:00-06:00", "fin": "2026-11-22T00:00:00-06:00", "motivo": "Mantenimiento" }
+```
+
+- `inicio` y `fin` son fecha y hora **con zona** (`-06:00` o `Z`). Sin zona se
+  rechaza, porque no se sabría si es hora de El Salvador o UTC. El período es
+  `[inicio, fin)`: el bloqueo del ejemplo deja libre el 22.
+- `motivo` es opcional, hasta 200 caracteres. Se guarda recortado; si queda
+  vacío, sin motivo.
+
+```json
+{
+  "id": "0b9d8c7e-...",
+  "publicacionId": "7c1e0f3a-...",
+  "inicio": "2026-11-20T00:00:00-06:00",
+  "fin": "2026-11-22T00:00:00-06:00",
+  "motivo": "Mantenimiento"
+}
+```
+
+| Estado | `codigo` | Cuándo |
+|---|---|---|
+| 201 | | El bloqueo quedó guardado con `created_by` = el arrendador. |
+| 400 | | Falta una fecha, no tiene zona, otro formato, la fecha no existe (`2026-02-30`), `fin` igual o anterior a `inicio` ("La fecha fin debe ser posterior a la de inicio."), `motivo` de más de 200 caracteres, una propiedad de más o un id que no es UUID. |
+| 401 | | Sin sesión. |
+| 403 | | La cuenta no es `ARRENDADOR`, o la publicación es de otro arrendador ("Publicación no encontrada."). |
+| 404 | | La publicación no existe ("Publicación no encontrada."). |
+| 409 | `RANGO_CON_RESERVA` | El rango se cruza con una reserva `CONFIRMADA` o `EN_CURSO` ("El rango tiene una reserva CONFIRMADA o EN_CURSO."). |
+
+### `GET /api/v1/publicaciones/{id}/bloqueos`
+
+Los bloqueos de una publicación propia, del más próximo al más lejano, **con
+el motivo**: `{ "items": [ { id, publicacionId, inicio, fin, motivo } ] }`.
+Mismos 401, 403 y 404 que el `POST`. No está en la ficha; lo agrego porque la
+tabla de bloqueos del wireframe de FE-14.1 necesita el motivo, y el
+calendario público (`/disponibilidad`) no lo muestra a propósito.
+
+### Cómo se crea
+
+`BlockRepository.create` hace todo en una transacción:
+
+1. `SELECT ... FOR UPDATE` de la publicación, **el mismo bloqueo que toma la
+   aprobación de BE-04.1** (ver DB-04.1).
+2. Busca una reserva `CONFIRMADA` o `EN_CURSO` de la publicación que se cruce
+   con el rango. Si hay, 409 y no se crea nada.
+3. Inserta el bloqueo.
+
+Como bloqueo y aprobación toman la misma fila, si llegan a la vez quedan en
+fila: o se confirma la reserva y el bloqueo da 409, o se crea el bloqueo y la
+aprobación da 409 `CONFLICTO_DISPONIBILIDAD`. Nunca quedan las dos cosas
+sobre las mismas fechas.
+
+### Decisiones
+
+- **El bien ajeno es 403, con el texto "Publicación no encontrada."** La ficha
+  de BE-14.1 pide 403 para quien no es el dueño y H14 (criterio 5) pide ese
+  texto, así que se cumplen los dos. Si la publicación no existe es 404 con el
+  mismo texto.
+- **Las solicitudes `PENDIENTE` no cambian** al bloquear. Si después el
+  arrendador intenta aprobar una que choca con el bloqueo, BE-04.1 responde
+  409 (hay prueba).
+- **Se puede bloquear una publicación desactivada.** Un bloqueo no expone
+  nada y el arrendador puede querer dejar el calendario listo antes de
+  reactivarla.
+- **Dos bloqueos sí pueden cruzarse entre sí**, como dice DB-14.1: no hace
+  daño y el calendario los muestra igual.
+- **No hay borrar ni editar.** Ninguna historia lo pide.
+- **No se valida que las fechas sean futuras.** La historia no lo pide y un
+  bloqueo pasado no afecta a nadie. La pantalla ya no deja elegir días
+  pasados (H13).
+
+### Pruebas
+
+- **Unitarias**
+  ([`blocks.service.spec.ts`](../../src/availability/services/blocks.service.spec.ts),
+  `npm test`): conversión de fechas con `-06:00` y con `Z`, motivo vacío como
+  `null`, `fin` igual o anterior (también el mismo instante escrito en otra
+  zona), fechas que no existen y el 29 de febrero, 404, 403, el 409 con su
+  `codigo`, y el listado.
+- **E2e**
+  ([`test/availability.blocks.e2e-spec.ts`](../../test/availability.blocks.e2e-spec.ts),
+  `npm run test:e2e`): la app completa contra la base `_test`.
+  - Crear: lo guardado en la base, que aparece ocupado en `/disponibilidad`
+    sin el motivo, motivo vacío, recortado y de 200 caracteres, fechas en
+    UTC, publicación desactivada y bloqueos que se cruzan.
+  - 409 con `CONFIRMADA` y `EN_CURSO`; lo que no estorba (otros estados,
+    tocar el borde, otra publicación); y que una `PENDIENTE` sigue igual pero
+    ya no se puede aprobar.
+  - Permisos y todos los 400.
+  - **Concurrencia:** aprobar una solicitud y bloquear sus fechas a la vez,
+    repetido con 12 publicaciones: siempre gana uno solo.
+  - El listado: orden, motivo, lista vacía y permisos.
+
+Quité el `FOR UPDATE` del repositorio y la prueba de concurrencia falla.
+
