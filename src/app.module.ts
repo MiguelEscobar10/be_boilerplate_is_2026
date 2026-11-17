@@ -10,6 +10,7 @@ import { NotificationsModule } from '@Notifications';
 import { PaymentsModule } from '@Payments';
 import { PrismaModule } from '@Prisma';
 import { UsersModule } from '@Users';
+import { VerificationModule } from '@Verification';
 import { validateEnv } from '@Config';
 
 @Module({
@@ -28,6 +29,7 @@ import { validateEnv } from '@Config';
     NotificationsModule,
     MessagingModule,
     PaymentsModule,
+    VerificationModule,
   ],
   providers: [
     {
