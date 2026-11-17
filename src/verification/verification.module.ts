@@ -1,8 +1,15 @@
 import { Module } from '@nestjs/common';
-import { VerificationController } from '@Verification/controllers';
-import { IdentityVerificationRepository } from '@Verification/repositories';
+import {
+  ListingVerificationController,
+  VerificationController,
+} from '@Verification/controllers';
+import {
+  IdentityVerificationRepository,
+  VerificationRequirementRepository,
+} from '@Verification/repositories';
 import {
   DocumentStorageService,
+  VerificationRequirementService,
   VerificationService,
 } from '@Verification/services';
 
@@ -10,16 +17,19 @@ import {
  * Módulo 7: Verificación de identidad y documentos.
  *
  * - VerificationController (BE-07.1): envío y consulta de la solicitud propia.
- * - El repositorio se exporta porque H19 (BE-19.1) consulta si un usuario está
- *   verificado.
+ * - ListingVerificationController (BE-19.1): opción "requiere verificación".
+ * - Exporta VerificationRequirementService: BE-03.1 (reservas) importa este
+ *   módulo y llama a `exigeVerificacionYNoCumple` al registrar una solicitud.
  */
 @Module({
-  controllers: [VerificationController],
+  controllers: [VerificationController, ListingVerificationController],
   providers: [
     VerificationService,
     IdentityVerificationRepository,
     DocumentStorageService,
+    VerificationRequirementService,
+    VerificationRequirementRepository,
   ],
-  exports: [IdentityVerificationRepository],
+  exports: [IdentityVerificationRepository, VerificationRequirementService],
 })
 export class VerificationModule {}
