@@ -97,7 +97,6 @@ solo en el cliente de Prisma.
 
 - **BE-07.2:** cola del REVISOR, entrega protegida del documento y decisión
   (`PATCH /api/v1/verificaciones/{id}/decision`).
-- **DB-19.1:** `listings.requires_verification`.
 
 ### Prueba de restricciones
 
@@ -173,3 +172,51 @@ insert falla después de escribir el archivo, el archivo se borra.
   de una `RECHAZADA`, archivo falso, grande, ausente o en otro campo (400),
   sesión (401) y rol (403); la consulta de la última, con motivo, la más
   reciente entre varias, que nadie ve la de otro y el 404 sin solicitudes.
+## DB-19.1. Opción "requiere verificación" en la publicación (MP4-102)
+
+### Modelo de datos
+
+Migración
+[`20261116080603_add_listing_requires_verification`](../../prisma/migrations/20261116080603_add_listing_requires_verification/migration.sql).
+
+**Columna nueva en `listings`** (campo Prisma `Listing.requiresVerification`)
+
+| Columna | Tipo | Nulo | Descripción |
+|---|---|---|---|
+| `requires_verification` | `BOOLEAN` | no | Si es `true`, solo la pueden solicitar arrendatarios con una verificación `APROBADA`. `false` por defecto. |
+
+| Brief | Columna en la base | Campo en Prisma |
+|---|---|---|
+| `publicacion.requiere_verificacion` | `listings.requires_verification` | `Listing.requiresVerification` |
+
+### Decisiones
+
+- **`DEFAULT false` en la misma sentencia.** El `ALTER TABLE ... ADD COLUMN ...
+  NOT NULL DEFAULT false` deja en `false` a todas las publicaciones que ya
+  existían, sin un `UPDATE` aparte. Nadie queda exigiendo verificación sin
+  haberlo decidido.
+- **"Verificado" no se guarda en `users`.** Una persona está verificada si
+  tiene alguna fila `APROBADA` en `identity_verifications` (DB-07.1). BE-19.1 lo
+  consulta con `count(*) WHERE user_id = ? AND status = 'APROBADA'`, que usa el
+  índice `(user_id, submitted_at DESC)`. Así no hay dos datos que puedan
+  contradecirse. Una `RECHAZADA` o `PENDIENTE` posterior no le quita la
+  verificación a quien ya tiene una `APROBADA`.
+- **Sin índice sobre la columna.** Solo se lee junto con la publicación que se
+  está solicitando (por `id`), nunca para filtrar el catálogo.
+
+### Qué queda para otras tasks
+
+- **BE-19.1:** `PATCH /api/v1/publicaciones/{id}/requiere-verificacion` (solo el
+  dueño) y la función `exigeVerificacionYNoCumple(publicacionId,
+  arrendatarioId)` que usa BE-03.1 para responder `422 VERIFICACION_REQUERIDA`.
+
+### Prueba
+
+[`test/verification.requirement.constraints.e2e-spec.ts`](../../test/verification.requirement.constraints.e2e-spec.ts)
+comprueba el valor por defecto, que un `INSERT` sin la columna (como las filas
+de antes de la migración) quede en `false`, el tipo `BOOLEAN NOT NULL DEFAULT
+false`, el rechazo de `NULL`, activar y desactivar la opción, y la consulta de
+"verificado": `APROBADA` sí; `PENDIENTE`, `RECHAZADA` o ninguna, no; una
+`APROBADA` sigue contando aunque después haya otras, y la de un usuario no
+cuenta para otro. También comprueba que `users` no tiene una columna de
+verificación.
