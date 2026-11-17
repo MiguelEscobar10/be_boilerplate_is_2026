@@ -205,9 +205,13 @@ model Conversation {
   landlordId String @map("landlord_id") @db.Uuid
   landlord   User   @relation("ConversationLandlord", fields: [landlordId], references: [id], onDelete: Restrict)
 
-  // NULL = conversación previa a la reserva (H15). La FK a reservations la
-  // agrega DB-16.1 cuando exista la tabla de reservas (DB-03.1).
-  reservationId String? @map("reservation_id") @db.Uuid
+  // NULL = conversación previa a la reserva (H15). Con valor, es la
+  // conversación de esa reserva (H16, DB-16.1): una sola por reserva y con
+  // las mismas dos personas (trigger conversations_reservation_participants,
+  // escrito a mano en la migración). RESTRICT: el historial de una reserva no
+  // se pierde.
+  reservationId String?      @unique @map("reservation_id") @db.Uuid
+  reservation   Reservation? @relation(fields: [reservationId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -306,6 +310,8 @@ model Reservation {
   createdAt DateTime @default(now()) @map("created_at")
 
   simulatedPayments SimulatedPayment[]
+  // Conversación de la reserva entre arrendatario y arrendador (H16, DB-16.1).
+  conversation      Conversation?
   delivery          Delivery?
 
   // Búsqueda de solapamientos: reservas CONFIRMADA o EN_CURSO de una
