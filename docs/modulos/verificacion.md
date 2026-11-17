@@ -95,8 +95,6 @@ solo en el cliente de Prisma.
 
 ### Qué queda para otras tasks
 
-- **BE-07.1:** envío (`POST /api/v1/usuarios/me/verificaciones`) y consulta de
-  la última solicitud; validación de formato y tamaño del archivo.
 - **BE-07.2:** cola del REVISOR, entrega protegida del documento y decisión
   (`PATCH /api/v1/verificaciones/{id}/decision`).
 
@@ -120,6 +118,60 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/si_be_boilerplate_te
 npm run test:e2e
 ```
 
+## BE-07.1. Envío y consulta de la verificación (MP4-98)
+
+### Endpoints
+
+| Método | Ruta | Rol | Respuesta |
+|---|---|---|---|
+| `POST` | `/api/v1/usuarios/me/verificaciones` | `ARRENDATARIO` | `201 { id, estado: "PENDIENTE" }` |
+| `GET` | `/api/v1/usuarios/me/verificaciones/ultima` | `ARRENDATARIO` | `200 { id, estado, motivoRechazo, enviadaAt, revisadaAt }` |
+
+El `POST` recibe `multipart/form-data` con un solo archivo en el campo
+`documento`. Ninguna respuesta incluye el documento ni su ruta.
+
+### Reglas
+
+- **Formato y tamaño.** JPG, PNG o PDF de máximo 5 MB. El tipo se decide por la
+  firma del archivo (sus primeros bytes), no por la extensión ni por el
+  `Content-Type`, que manda el cliente: un `.txt` renombrado a `.pdf` responde
+  **400**. Más de 5 MB, un archivo vacío, ninguno o uno en otro campo también
+  responden **400** con un mensaje que el frontend puede mostrar tal cual. En
+  ningún caso se registra la solicitud ni queda el archivo guardado.
+- **Una sola `PENDIENTE`.** Si ya hay una, responde **409** ("Esperá la
+  respuesta del revisor") y no registra otra. Primero se consulta para no
+  escribir el archivo en el caso común; si dos envíos llegan al mismo tiempo,
+  decide el índice único parcial de DB-07.1 y el que pierde también recibe
+  **409** y su archivo se borra. Después de una `APROBADA` o `RECHAZADA` se
+  puede enviar otra.
+- **Solo la propia.** Las dos rutas usan el usuario de la sesión, así que
+  nadie puede pedir la solicitud de otro. Si todavía no envió ninguna, el `GET`
+  responde **404**. `motivoRechazo` solo viene si la solicitud está
+  `RECHAZADA` y el revisor escribió uno.
+- **Solo arrendatarios.** Sin sesión responde **401**; un `ARRENDADOR` o un
+  `REVISOR` reciben **403** (supuesto 2 de la sección 2.5: el arrendador no se
+  verifica).
+- Los errores usan el formato por defecto de Nest (`{ statusCode, message,
+  error }`), igual que el resto de los módulos.
+
+### Dónde quedan los documentos
+
+En `UPLOADS_DIR/verificaciones/<uuid>.<jpg|png|pdf>`, con el nombre generado
+por el servidor (nunca el que manda el cliente). En la base solo queda la ruta
+relativa en `document_key`. Ninguna ruta pública sirve esa carpeta: el
+documento solo lo abre el REVISOR por la ruta protegida de BE-07.2. Si el
+insert falla después de escribir el archivo, el archivo se borra.
+
+### Pruebas
+
+- [`src/verification/services/verification.service.spec.ts`](../../src/verification/services/verification.service.spec.ts):
+  validación del archivo, el 409 (también cuando gana otra petición) y la
+  limpieza del archivo si el insert falla.
+- [`test/verification.e2e-spec.ts`](../../test/verification.e2e-spec.ts):
+  envío de PDF, PNG y JPG, el 409 y dos envíos simultáneos, una nueva después
+  de una `RECHAZADA`, archivo falso, grande, ausente o en otro campo (400),
+  sesión (401) y rol (403); la consulta de la última, con motivo, la más
+  reciente entre varias, que nadie ve la de otro y el 404 sin solicitudes.
 ## DB-19.1. Opción "requiere verificación" en la publicación (MP4-102)
 
 ### Modelo de datos
