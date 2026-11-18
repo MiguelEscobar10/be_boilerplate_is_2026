@@ -16,7 +16,7 @@ Migración
 | `listing_id` | `UUID` | no | Publicación sobre la que se conversa. FK a `listings.id`, `ON DELETE RESTRICT`. |
 | `tenant_id` | `UUID` | no | Arrendatario. FK a `users.id`, `ON DELETE RESTRICT`. |
 | `landlord_id` | `UUID` | no | Arrendador. FK a `users.id`, `ON DELETE RESTRICT`. |
-| `reservation_id` | `UUID` | sí | `NULL` = conversación previa a la reserva (H15). La FK la agrega DB-16.1. |
+| `reservation_id` | `UUID` | sí | `NULL` = conversación previa a la reserva (H15). Con valor, conversación de la reserva (H16): FK a `reservations.id`, `ON DELETE RESTRICT`, ver [DB-16.1](#db-161-conversación-de-la-reserva-mp4-85). |
 | `created_at` | `TIMESTAMP(3)` | no | Fecha de creación. |
 
 - Índice único parcial `conversations_pre_reservation_key` sobre
@@ -56,10 +56,9 @@ cronológico y paginado; `id` desempata dos mensajes del mismo instante.
 
 ### Decisiones
 
-- **`reservation_id` todavía sin FK.** La tabla de reservas llega con DB-03.1
-  (Mario). Para no bloquear la mensajería, la columna ya existe y DB-16.1
-  agrega la FK y el índice único `(reservation_id)` cuando esa tabla esté en
-  `main`.
+- **`reservation_id` nació sin FK.** La tabla de reservas llegó después, con
+  DB-03.1 (Mario). Para no bloquear la mensajería la columna ya existía, y la
+  FK y el índice único los agregó DB-16.1.
 - **`landlord_id` guardado aunque se pueda sacar de la publicación.** Así las
   consultas de "mis conversaciones" y el control de quién participa no
   necesitan unir con `listings`, y el `CHECK` de participantes distintos se
@@ -78,6 +77,76 @@ comprueba el historial en orden, la conversación previa única (y que otro
 arrendatario o una conversación de reserva no chocan), los participantes
 distintos, las FK, el contenido vacío o de más de 1000 caracteres y el
 comportamiento al borrar.
+
+## DB-16.1. Conversación de la reserva (MP4-85)
+
+Migración
+[`20261117051512_link_conversations_to_reservations`](../../prisma/migrations/20261117051512_link_conversations_to_reservations/migration.sql).
+No crea tablas: la conversación de una reserva es una fila más de
+`conversations` con `reservation_id`, y sus mensajes van en `messages` como
+los de DB-15.1.
+
+### Qué agrega
+
+- **FK `conversations_reservation_id_fkey`** a `reservations.id`, `ON DELETE
+  RESTRICT`: una reserva con conversación no se borra, para no perder el
+  historial de la entrega.
+- **Índice único `conversations_reservation_id_key`** sobre `reservation_id`:
+  cada reserva tiene como máximo una conversación.
+- **Trigger `conversations_reservation_participants`** (función
+  `conversations_reservation_participants_check`): cuando la conversación
+  tiene reserva, `listing_id` tiene que ser la publicación de la reserva,
+  `tenant_id` quien reservó y `landlord_id` el dueño de la publicación. Corre
+  al insertar y al cambiar cualquiera de esas cuatro columnas. Si falla
+  responde `check_violation` con el nombre de la regla en el mensaje, igual
+  que un `CHECK`.
+- En Prisma: `Conversation.reservation` y `Reservation.conversation` (1 a 1,
+  opcional del lado de la reserva).
+
+### Decisiones
+
+- **Índice único normal y no parcial.** La especificación pide el índice
+  único "donde no sea nulo". En PostgreSQL un índice único ya deja varias
+  filas con `NULL`, así que el resultado es el mismo. Además Prisma necesita
+  `@unique` en `reservationId` para modelar la relación 1 a 1, y con un índice
+  parcial escrito a mano el schema y la base quedarían desfasados.
+- **Trigger y no `CHECK`.** La regla de "las mismas dos personas" compara con
+  `reservations` y `listings`, y un `CHECK` no puede leer otras tablas. Las
+  conversaciones previas (`reservation_id` `NULL`) no pasan por la revisión.
+- **Si la reserva no existe responde la FK** (`P2003`), no el trigger, para
+  que el error diga lo que de verdad pasó.
+- **La conversación previa y la de la reserva son distintas.** El índice
+  parcial de DB-15.1 solo mira las que no tienen reserva, así que conviven.
+  Igual se puede asociar una previa a la reserva de las mismas personas con
+  un `UPDATE`; si BE-16.1 la reutiliza o abre otra lo decide el backend.
+- **Qué estado de la reserva habilita escribir** (CONFIRMADA y EN_CURSO) lo
+  revisa BE-16.1, no la base: el estado cambia y el historial tiene que
+  seguir visible.
+
+### Cómo revertir la migración
+
+```sql
+DROP TRIGGER "conversations_reservation_participants" ON "conversations";
+DROP FUNCTION "conversations_reservation_participants_check"();
+ALTER TABLE "conversations" DROP CONSTRAINT "conversations_reservation_id_fkey";
+DROP INDEX "conversations_reservation_id_key";
+```
+
+### Prueba de restricciones
+
+[`test/messaging.reservation.constraints.e2e-spec.ts`](../../test/messaging.reservation.constraints.e2e-spec.ts)
+(`npm run test:e2e`, contra la base `_test`): la conversación queda
+relacionada con la reserva y las dos personas en los dos sentidos; una sola
+por reserva; cada reserva tiene la suya y conviven con la previa; reserva
+inexistente (FK); arrendatario, arrendador o publicación que no son los de la
+reserva, al crear, al cambiar la reserva y al cambiar solo una de las otras
+columnas en un `UPDATE`; asociar una previa a su reserva;
+no se borra una reserva con conversación; y el índice existe sin tablas
+nuevas.
+
+Quité el trigger y el índice por separado en la base de pruebas: sin el
+trigger fallan 7 casos y sin el índice fallan 2. Con el trigger limitado a
+`UPDATE OF reservation_id` fallan los 3 casos que cambian solo una columna.
 
 ## BE-15.1. Conversaciones y mensajes antes de reservar (MP4-82)
 
@@ -125,3 +194,84 @@ se pierde: ya quedó guardado y el error se registra en el log.
 reutilizar la conversación, historial en orden y paginado, el aviso (y que no
 lleve el texto), mensajes vacíos o largos, privacidad (404), roles (403) y
 sesión (401).
+
+## BE-16.1. Conversación de la reserva (MP4-86)
+
+Usa las tablas de DB-15.1 y la relación de DB-16.1. Los mensajes van por los
+mismos endpoints de BE-15.1; lo único nuevo es abrir la conversación desde la
+reserva y que escribir dependa de su estado.
+
+### Endpoints
+
+| Método | Ruta | Quién | Respuesta |
+|---|---|---|---|
+| `POST` | `/api/v1/reservas/{id}/conversacion` (sin cuerpo) | quien reservó o el dueño de la publicación | `201 { id }` si es nueva, `200 { id }` si ya existía |
+| `POST` | `/api/v1/conversaciones/{id}/mensajes` | participante | `201 { id, createdAt }`; `409` si la reserva está cerrada |
+| `GET` | `/api/v1/conversaciones/{id}/mensajes` | participante | `200` con el historial, en cualquier estado |
+
+### Qué se puede hacer en cada estado
+
+| Estado de la reserva | Abrir (`POST /reservas/{id}/conversacion`) | Escribir (`POST .../mensajes`) | Leer (`GET .../mensajes`) |
+|---|---|---|---|
+| `PENDIENTE` | `409 CONVERSACION_NO_HABILITADA` | (no hay conversación) | (no hay conversación) |
+| `CONFIRMADA` | `201` / `200` | `201` | `200` |
+| `EN_CURSO` | `201` / `200` | `201` | `200` |
+| `RECHAZADA`, `CANCELADA`, `COMPLETADA` | `200` si ya existía; si no, `409 CONVERSACION_CERRADA` | `409 CONVERSACION_CERRADA` | `200` |
+
+Los 409 usan el formato de error de siempre más el campo `codigo`, igual que
+pagos (BE-05.1):
+
+```json
+{
+  "statusCode": 409,
+  "message": "La conversación se habilita cuando la reserva esté CONFIRMADA.",
+  "error": "Conflict",
+  "codigo": "CONVERSACION_NO_HABILITADA"
+}
+```
+
+### Reglas
+
+- La abre cualquiera de las dos personas de la reserva y los dos llegan a la
+  misma. Si la abren al mismo tiempo, el índice único de DB-16.1 evita el
+  duplicado: una petición recibe 201 y la otra 200 con el mismo `id`.
+- Para cualquier otra persona la reserva "no existe": **404**, igual que una
+  reserva inexistente. Un id que no es UUID es **400** y sin sesión **401**.
+  Un usuario sin rol de arrendatario ni arrendador (por ejemplo `REVISOR`)
+  recibe **403** del guard de roles.
+- La conversación de la reserva es distinta de la previa (H15): la previa no
+  depende de ningún estado y sigue funcionando igual.
+- Contenido, paginación y aviso al otro participante son los de BE-15.1:
+  1 a 1000 caracteres, `Mensaje nuevo` por el Módulo 8 sin el texto del
+  mensaje. Un mensaje rechazado con 409 no se guarda ni genera aviso.
+- **CANCELADA cuenta como cerrada.** La especificación solo nombra RECHAZADA
+  y COMPLETADA, pero una reserva cancelada tampoco va a tener entrega que
+  coordinar.
+- El estado se revisa al momento de escribir. Si la reserva cambia de estado
+  justo mientras llega un mensaje, ese mensaje puede quedar guardado; el
+  siguiente ya recibe 409.
+
+### Archivos
+
+- [`src/messaging/errors/`](../../src/messaging/errors/): los 409 con código y
+  `motivoSinEscritura`, la tabla de estados de arriba en una sola función.
+- `MessagingService.openForReservation` y la revisión de estado en
+  `sendMessage`.
+- `ConversationRepository`: `findReservationForParticipant`,
+  `findByReservation` y `createForReservation`.
+
+### Pruebas
+
+- [`test/messaging.reservation.e2e-spec.ts`](../../test/messaging.reservation.e2e-spec.ts)
+  (25 casos): abrir en CONFIRMADA y EN_CURSO (201 y 200), el arrendador
+  también la abre, apertura simultánea, distinta de la previa, PENDIENTE y
+  los estados cerrados (409 con su código), terceros y otro arrendador (404),
+  reserva inexistente, id inválido y sin sesión; mensajes con aviso sin el
+  texto, que siga en EN_CURSO, 409 al escribir en RECHAZADA, CANCELADA y
+  COMPLETADA con el historial visible, que el rechazado no se guarde ni
+  avise, contenido vacío o de 1001 caracteres (400) y de 1000 (201).
+- [`src/messaging/errors/reservation-conversation.rules.spec.ts`](../../src/messaging/errors/reservation-conversation.rules.spec.ts):
+  cada estado y el formato del 409.
+
+Quité la revisión de estado de `sendMessage` para comprobar que las pruebas
+la cubren: fallan 4 casos.

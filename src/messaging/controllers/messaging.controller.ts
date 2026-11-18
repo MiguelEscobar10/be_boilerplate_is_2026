@@ -12,6 +12,7 @@ import {
 import {
   ApiBearerAuth,
   ApiBadRequestResponse,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -73,6 +74,45 @@ export class MessagingController {
     return { id: conversation.id };
   }
 
+  /** Abre la conversación de una reserva propia (H16). */
+  @Roles('ARRENDATARIO', 'ARRENDADOR')
+  @Post('reservas/:id/conversacion')
+  @ApiOperation({
+    summary: 'Abre (o recupera) la conversación de la reserva',
+    description:
+      'Solo para quien reservó y el dueño de la publicación. Se crea con la reserva CONFIRMADA o EN_CURSO; si ya existe se devuelve en cualquier estado para leer el historial.',
+  })
+  @ApiCreatedResponse({
+    type: ConversationCreatedDto,
+    description: 'Conversación nueva.',
+  })
+  @ApiOkResponse({
+    type: ConversationCreatedDto,
+    description: 'Ya existía; se devuelve esa.',
+  })
+  @ApiForbiddenResponse({
+    description: 'Solo un arrendatario o un arrendador abre la conversación.',
+  })
+  @ApiNotFoundResponse({
+    description: 'La reserva no existe o no participás en ella.',
+  })
+  @ApiConflictResponse({
+    description:
+      'codigo CONVERSACION_NO_HABILITADA (reserva PENDIENTE) o CONVERSACION_CERRADA (RECHAZADA, CANCELADA o COMPLETADA, sin conversación previa).',
+  })
+  async openForReservation(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) reservationId: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ConversationCreatedDto> {
+    const { conversation, created } = await this.messaging.openForReservation(
+      reservationId,
+      user.id,
+    );
+    res.status(created ? HttpStatus.CREATED : HttpStatus.OK);
+    return { id: conversation.id };
+  }
+
   @Roles('ARRENDATARIO', 'ARRENDADOR')
   @Post('conversaciones/:id/mensajes')
   @ApiOperation({ summary: 'Envía un mensaje en una conversación propia' })
@@ -82,6 +122,10 @@ export class MessagingController {
   })
   @ApiNotFoundResponse({
     description: 'La conversación no existe o no participás en ella.',
+  })
+  @ApiConflictResponse({
+    description:
+      'Conversación de reserva: codigo CONVERSACION_CERRADA con la reserva RECHAZADA, CANCELADA o COMPLETADA (el GET sigue funcionando).',
   })
   async send(
     @CurrentUser() user: User,
