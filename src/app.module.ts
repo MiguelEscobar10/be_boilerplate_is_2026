@@ -12,6 +12,7 @@ import { MessagingModule } from '@Messaging';
 import { NotificationsModule } from '@Notifications';
 import { PaymentsModule } from '@Payments';
 import { PrismaModule } from '@Prisma';
+import { ReportsModule } from '@Reports';
 import { ReservationDecisionsModule } from '@ReservationDecisions';
 import { UsersModule } from '@Users';
 import { VerificationModule } from '@Verification';
@@ -38,6 +39,7 @@ import { validateEnv } from '@Config';
     DeliveriesModule,
     ReservationDecisionsModule,
     IncomeModule,
+    ReportsModule,
   ],
   providers: [
     {

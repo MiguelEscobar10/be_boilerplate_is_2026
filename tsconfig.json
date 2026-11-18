@@ -59,6 +59,8 @@
       "@ReservationDecisions/*": ["./src/reservation-decisions/*/index.ts"],
       "@Income": ["./src/income/index.ts"],
       "@Income/*": ["./src/income/*/index.ts"],
+      "@Reports": ["./src/reports/index.ts"],
+      "@Reports/*": ["./src/reports/*/index.ts"],
       "@Health": ["./src/health/index.ts"],
       "@Health/*": ["./src/health/*/index.ts"],
       "@Prisma": ["./src/prisma/index.ts"],
