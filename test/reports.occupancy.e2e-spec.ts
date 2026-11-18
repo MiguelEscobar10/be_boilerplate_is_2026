@@ -176,6 +176,17 @@ describe('consulta de días ocupados y bloqueados (DB-22.1)', () => {
     ]);
   });
 
+  it('una reserva que empieza justo a medianoche no ocupa el día anterior', async () => {
+    const id = await listing('Medianoche al empezar');
+    await reserve(id, nov(10), nov(12, 10)); // empieza a las 00:00 del 10
+
+    expect(await occupiedDays(id, '2026-11-08', '2026-11-13')).toEqual([
+      '2026-11-10',
+      '2026-11-11',
+      '2026-11-12',
+    ]);
+  });
+
   it('una reserva que termina justo a medianoche no ocupa el día siguiente', async () => {
     const id = await listing('Medianoche');
     await reserve(id, nov(20, 10), nov(22)); // termina a las 00:00 del 22
