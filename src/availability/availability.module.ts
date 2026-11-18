@@ -1,18 +1,28 @@
 import { Module } from '@nestjs/common';
 import { ListingsModule } from '@Listings';
-import { AvailabilityController } from '@Availability/controllers';
-import { AvailabilityRepository } from '@Availability/repositories';
-import { AvailabilityService } from '@Availability/services';
+import {
+  AvailabilityController,
+  BlocksController,
+} from '@Availability/controllers';
+import {
+  AvailabilityRepository,
+  BlockRepository,
+} from '@Availability/repositories';
+import { AvailabilityService, BlocksService } from '@Availability/services';
 
 /**
  * Disponibilidad de una publicación (Módulo 3): el calendario de días
- * ocupados (H13). Los bloqueos de fechas del arrendador (H14, BE-14.1) van a
- * vivir también aquí.
+ * ocupados (H13) y los bloqueos de fechas del arrendador (H14).
  */
 @Module({
   // ListingsService resuelve el 404 de una publicación inactiva o inexistente.
   imports: [ListingsModule],
-  controllers: [AvailabilityController],
-  providers: [AvailabilityService, AvailabilityRepository],
+  controllers: [AvailabilityController, BlocksController],
+  providers: [
+    AvailabilityService,
+    AvailabilityRepository,
+    BlocksService,
+    BlockRepository,
+  ],
 })
 export class AvailabilityModule {}
