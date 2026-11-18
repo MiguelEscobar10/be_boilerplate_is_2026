@@ -311,6 +311,29 @@ describe('QA-15.1: conversación antes de reservar', () => {
       expect(await messagesIn(id)).toBe(1);
     });
 
+    it('M22: 1000 emojis se aceptan y se guardan completos (se cuentan caracteres, no unidades UTF-16)', async () => {
+      const id = await fresh();
+      const emojis = '😀'.repeat(1000);
+
+      const { body } = await send(id, tenant, { contenido: emojis }).expect(
+        201,
+      );
+
+      const saved = await prisma.message.findUniqueOrThrow({
+        where: { id: body.id },
+      });
+      expect(saved.content).toBe(emojis);
+      expect([...saved.content]).toHaveLength(1000);
+    });
+
+    it('M23: 1001 emojis responde 400 y no se guarda', async () => {
+      const id = await fresh();
+
+      await send(id, tenant, { contenido: '😀'.repeat(1001) }).expect(400);
+
+      expect(await messagesIn(id)).toBe(0);
+    });
+
     it('M16: no se puede mandar otro autor en el cuerpo (400) y no se guarda', async () => {
       const id = await fresh();
 
