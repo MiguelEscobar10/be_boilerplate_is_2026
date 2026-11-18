@@ -194,3 +194,84 @@ se pierde: ya quedó guardado y el error se registra en el log.
 reutilizar la conversación, historial en orden y paginado, el aviso (y que no
 lleve el texto), mensajes vacíos o largos, privacidad (404), roles (403) y
 sesión (401).
+
+## BE-16.1. Conversación de la reserva (MP4-86)
+
+Usa las tablas de DB-15.1 y la relación de DB-16.1. Los mensajes van por los
+mismos endpoints de BE-15.1; lo único nuevo es abrir la conversación desde la
+reserva y que escribir dependa de su estado.
+
+### Endpoints
+
+| Método | Ruta | Quién | Respuesta |
+|---|---|---|---|
+| `POST` | `/api/v1/reservas/{id}/conversacion` (sin cuerpo) | quien reservó o el dueño de la publicación | `201 { id }` si es nueva, `200 { id }` si ya existía |
+| `POST` | `/api/v1/conversaciones/{id}/mensajes` | participante | `201 { id, createdAt }`; `409` si la reserva está cerrada |
+| `GET` | `/api/v1/conversaciones/{id}/mensajes` | participante | `200` con el historial, en cualquier estado |
+
+### Qué se puede hacer en cada estado
+
+| Estado de la reserva | Abrir (`POST /reservas/{id}/conversacion`) | Escribir (`POST .../mensajes`) | Leer (`GET .../mensajes`) |
+|---|---|---|---|
+| `PENDIENTE` | `409 CONVERSACION_NO_HABILITADA` | (no hay conversación) | (no hay conversación) |
+| `CONFIRMADA` | `201` / `200` | `201` | `200` |
+| `EN_CURSO` | `201` / `200` | `201` | `200` |
+| `RECHAZADA`, `CANCELADA`, `COMPLETADA` | `200` si ya existía; si no, `409 CONVERSACION_CERRADA` | `409 CONVERSACION_CERRADA` | `200` |
+
+Los 409 usan el formato de error de siempre más el campo `codigo`, igual que
+pagos (BE-05.1):
+
+```json
+{
+  "statusCode": 409,
+  "message": "La conversación se habilita cuando la reserva esté CONFIRMADA.",
+  "error": "Conflict",
+  "codigo": "CONVERSACION_NO_HABILITADA"
+}
+```
+
+### Reglas
+
+- La abre cualquiera de las dos personas de la reserva y los dos llegan a la
+  misma. Si la abren al mismo tiempo, el índice único de DB-16.1 evita el
+  duplicado: una petición recibe 201 y la otra 200 con el mismo `id`.
+- Para cualquier otra persona la reserva "no existe": **404**, igual que una
+  reserva inexistente. Un id que no es UUID es **400** y sin sesión **401**.
+  Un usuario sin rol de arrendatario ni arrendador (por ejemplo `REVISOR`)
+  recibe **403** del guard de roles.
+- La conversación de la reserva es distinta de la previa (H15): la previa no
+  depende de ningún estado y sigue funcionando igual.
+- Contenido, paginación y aviso al otro participante son los de BE-15.1:
+  1 a 1000 caracteres, `Mensaje nuevo` por el Módulo 8 sin el texto del
+  mensaje. Un mensaje rechazado con 409 no se guarda ni genera aviso.
+- **CANCELADA cuenta como cerrada.** La especificación solo nombra RECHAZADA
+  y COMPLETADA, pero una reserva cancelada tampoco va a tener entrega que
+  coordinar.
+- El estado se revisa al momento de escribir. Si la reserva cambia de estado
+  justo mientras llega un mensaje, ese mensaje puede quedar guardado; el
+  siguiente ya recibe 409.
+
+### Archivos
+
+- [`src/messaging/errors/`](../../src/messaging/errors/): los 409 con código y
+  `motivoSinEscritura`, la tabla de estados de arriba en una sola función.
+- `MessagingService.openForReservation` y la revisión de estado en
+  `sendMessage`.
+- `ConversationRepository`: `findReservationForParticipant`,
+  `findByReservation` y `createForReservation`.
+
+### Pruebas
+
+- [`test/messaging.reservation.e2e-spec.ts`](../../test/messaging.reservation.e2e-spec.ts)
+  (25 casos): abrir en CONFIRMADA y EN_CURSO (201 y 200), el arrendador
+  también la abre, apertura simultánea, distinta de la previa, PENDIENTE y
+  los estados cerrados (409 con su código), terceros y otro arrendador (404),
+  reserva inexistente, id inválido y sin sesión; mensajes con aviso sin el
+  texto, que siga en EN_CURSO, 409 al escribir en RECHAZADA, CANCELADA y
+  COMPLETADA con el historial visible, que el rechazado no se guarde ni
+  avise, contenido vacío o de 1001 caracteres (400) y de 1000 (201).
+- [`src/messaging/errors/reservation-conversation.rules.spec.ts`](../../src/messaging/errors/reservation-conversation.rules.spec.ts):
+  cada estado y el formato del 409.
+
+Quité la revisión de estado de `sendMessage` para comprobar que las pruebas
+la cubren: fallan 4 casos.
