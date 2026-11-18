@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -55,6 +55,22 @@ export class DocumentStorageService {
   /** Borra un documento ya guardado; se usa si falla el insert en la base. */
   async remove(relative: string): Promise<void> {
     await rm(this.absolutePath(relative), { force: true });
+  }
+
+  /** Si el archivo sigue en disco (pudo borrarse a mano o perderse el volumen). */
+  async exists(relative: string): Promise<boolean> {
+    try {
+      await access(this.absolutePath(relative));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  contentType(relative: string): string {
+    if (relative.endsWith('.pdf')) return 'application/pdf';
+    if (relative.endsWith('.png')) return 'image/png';
+    return 'image/jpeg';
   }
 
   absolutePath(relative: string): string {

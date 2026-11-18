@@ -95,8 +95,7 @@ solo en el cliente de Prisma.
 
 ### Qué queda para otras tasks
 
-- **BE-07.2:** cola del REVISOR, entrega protegida del documento y decisión
-  (`PATCH /api/v1/verificaciones/{id}/decision`).
+Nada pendiente: BE-07.1, BE-07.2, DB-19.1 y BE-19.1 están documentadas más abajo.
 
 ### Prueba de restricciones
 
@@ -285,3 +284,62 @@ texto:
   exige con arrendatario sin verificación, `PENDIENTE`, `RECHAZADA` o
   `APROBADA`; publicación que no la exige; y que activar la opción por el
   endpoint hace que la regla empiece a rechazar.
+## BE-07.2. Revisión manual con permisos (MP4-99)
+
+### Endpoints
+
+Todos solo para el rol `REVISOR` (lo crea el seed; nadie se registra con ese
+rol). Sin sesión responden **401** y con cualquier otro rol **403**, incluido
+el arrendatario dueño de la solicitud.
+
+| Método | Ruta | Respuesta |
+|---|---|---|
+| `GET` | `/api/v1/verificaciones?estado=PENDIENTE` | `200 [{ id, estado, usuario: { id, email, nombre }, enviadaAt, motivoRechazo, revisadaAt, documentoUrl }]` en orden de llegada |
+| `GET` | `/api/v1/verificaciones/{id}/documento` | `200` con el archivo y su `Content-Type` (`application/pdf`, `image/png` o `image/jpeg`) |
+| `PATCH` | `/api/v1/verificaciones/{id}/decision` | `200 { id, estado }` |
+
+Cuerpo de la decisión: `{ "decision": "APROBAR" }` o
+`{ "decision": "RECHAZAR", "motivo": "Documento ilegible" }`.
+
+### Reglas
+
+- **`estado`** es opcional (por defecto `PENDIENTE`); un valor que no sea
+  `PENDIENTE`, `APROBADA` o `RECHAZADA` responde **400**.
+- **El documento solo sale por su ruta protegida.** La cola no devuelve la ruta
+  privada (`document_key`), solo `documentoUrl`, que exige el rol REVISOR. La
+  respuesta del archivo va con `Cache-Control: private, no-store` para que no
+  quede en una caché compartida. La carpeta `UPLOADS_DIR` no se sirve como
+  estática (hay prueba).
+- **El documento se entrega con `X-Content-Type-Options: nosniff`**, y si el
+  archivo ya no está en disco la ruta responde un **404** genérico ("El
+  documento no está disponible."), sin la ruta del servidor.
+- **Decisión.** `APROBAR` deja la solicitud `APROBADA`; `RECHAZAR` la deja
+  `RECHAZADA` con el motivo si viene (se guarda sin los espacios de los
+  extremos). En los dos casos se registran `reviewed_by` y `reviewed_at`.
+  Responde **400** si la decisión no es `APROBAR` ni `RECHAZAR`, si se manda un
+  motivo al aprobar, o si el motivo está vacío o pasa de 500 caracteres.
+- **No se decide dos veces.** Si la solicitud ya está `APROBADA` o `RECHAZADA`
+  responde **409** y no cambia nada. El `UPDATE` filtra por
+  `status = 'PENDIENTE'`, así que si dos revisores deciden a la vez, uno recibe
+  200 y el otro 409.
+- **404** si la solicitud no existe; **400** si el id no es un UUID.
+- `reviewed_at` es la hora de la aplicación, pero nunca anterior a
+  `submitted_at` (el `CHECK` de DB-07.1 lo exige y los relojes de la app y de la
+  base pueden diferir unos milisegundos).
+- El arrendatario ve el resultado en `GET /usuarios/me/verificaciones/ultima`
+  (BE-07.1). La sección 2.4 no define un aviso para H07, así que la decisión no
+  llama a `notificar()`.
+
+### Pruebas
+
+- [`src/verification/services/review.service.spec.ts`](../../src/verification/services/review.service.spec.ts):
+  aprobar, rechazar con y sin motivo, motivo al aprobar (400), 404, 409 por
+  solicitud ya resuelta y por decisión simultánea.
+- [`test/verification.review.e2e-spec.ts`](../../test/verification.review.e2e-spec.ts):
+  la cola en orden y sin la ruta privada, el filtro por estado, el documento
+  (tipo, caché y que nadie más lo obtenga, ni por ruta estática), aprobar y
+  rechazar (y que el arrendatario lo vea), enviar otra después de un rechazo,
+  el 409 al decidir otra vez, dos decisiones simultáneas, los 400, 401, 403 y
+  404. También prueba el repositorio directo: una segunda llamada a
+  `decide` devuelve `null` sin cambiar la primera decisión, y con el reloj de
+  la aplicación atrasado `reviewed_at` queda igual a `submitted_at`.
