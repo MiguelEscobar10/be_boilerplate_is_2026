@@ -6,11 +6,13 @@ import { DeliveriesModule } from '@Deliveries';
 import { JwtAuthGuard, RolesGuard } from '@Auth/guards';
 import { AvailabilityModule } from '@Availability';
 import { HealthModule } from '@Health';
+import { IncomeModule } from '@Income';
 import { ListingsModule } from '@Listings';
 import { MessagingModule } from '@Messaging';
 import { NotificationsModule } from '@Notifications';
 import { PaymentsModule } from '@Payments';
 import { PrismaModule } from '@Prisma';
+import { ReportsModule } from '@Reports';
 import { ReservationDecisionsModule } from '@ReservationDecisions';
 import { UsersModule } from '@Users';
 import { VerificationModule } from '@Verification';
@@ -36,6 +38,8 @@ import { validateEnv } from '@Config';
     VerificationModule,
     DeliveriesModule,
     ReservationDecisionsModule,
+    IncomeModule,
+    ReportsModule,
   ],
   providers: [
     {
