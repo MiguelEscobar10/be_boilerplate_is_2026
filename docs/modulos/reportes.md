@@ -21,6 +21,14 @@ el backend las llama con `$queryRaw`.
 - **Ocupado.** Un día está ocupado si se cruza con alguna reserva `CONFIRMADA`,
   `EN_CURSO` o `COMPLETADA`. No cuentan `PENDIENTE`, `RECHAZADA` ni `CANCELADA`.
   Aunque varias reservas cubran el mismo día, se cuenta una sola vez.
+
+  `EN_CURSO` cuenta porque la tabla de estados del documento dice que esa
+  reserva "ocupa las fechas del período", igual que `CONFIRMADA`, y porque
+  H03, H04 y H11 revisan conflictos contra `CONFIRMADA` **o** `EN_CURSO`. Es
+  la misma reserva antes y después de la entrega (H08): si no contara, un bien
+  en uso aparecería libre justo mientras se está usando. Los criterios de H22
+  nombran solo `CONFIRMADA` y `COMPLETADA` porque `EN_CURSO` aparece recién
+  con H08; está conversado con el equipo en el PR #28.
 - **Bloqueado.** Un día está bloqueado si se cruza con algún bloqueo. Un día
   bloqueado no cuenta como ocupado ni como disponible.
 - **Períodos semiabiertos** `[start_at, end_at)`: una reserva que termina justo
