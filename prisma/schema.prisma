@@ -58,6 +58,7 @@ model User {
   conversationsAsLandlord Conversation[] @relation("ConversationLandlord")
   messages                Message[]
   registeredDeliveries    Delivery[]
+  registeredReturns       Return[]
 
   identityVerifications         IdentityVerification[] @relation("IdentityVerificationUser")
   reviewedIdentityVerifications IdentityVerification[] @relation("IdentityVerificationReviewer")
@@ -331,6 +332,9 @@ model Reservation {
   // Conversación de la reserva entre arrendatario y arrendador (H16, DB-16.1).
   conversation      Conversation?
   delivery          Delivery?
+  // Devolución y resolución del depósito (H09, DB-09.1).
+  returnRecord      Return?
+  depositResolution DepositResolution?
   tenantRating      TenantRating?
 
   // Búsqueda de solapamientos: reservas CONFIRMADA o EN_CURSO de una
@@ -513,6 +517,82 @@ model DeliveryPhoto {
 
   @@unique([deliveryId, position])
   @@map("delivery_photos")
+}
+
+// Estado del bien al devolverlo (H09). En español, como el `estadoFinal` que
+// viaja en la API.
+enum ReturnFinalState {
+  SIN_OBSERVACIONES
+  CON_OBSERVACIONES
+}
+
+// Devolución del equipo o fin del uso del espacio (H09). Deja constancia de
+// cuándo regresó el bien y en qué estado. Ver docs/modulos/devoluciones.md.
+model Return {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Una sola devolución por reserva (UNIQUE). RESTRICT, como la entrega.
+  reservationId String      @unique @map("reservation_id") @db.Uuid
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+
+  // Fecha y hora real de la devolución, en UTC. La manda el arrendador
+  // (BE-09.1 valida que no sea anterior a la entrega).
+  returnedAt DateTime @map("returned_at")
+
+  finalState ReturnFinalState @map("final_state")
+
+  // Nota general opcional. CHECK: si viene, con algún carácter que no sea
+  // espacio en blanco.
+  observations String? @db.VarChar(500)
+  // Daños o faltantes. CHECK returns_damages_check: obligatorio (con algún
+  // carácter que no sea espacio) si CON_OBSERVACIONES y NULL si
+  // SIN_OBSERVACIONES.
+  damages      String? @db.VarChar(500)
+
+  // Arrendador que registró la devolución. RESTRICT, como en la entrega.
+  registeredById String @map("registered_by") @db.Uuid
+  registeredBy   User   @relation(fields: [registeredById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([registeredById])
+  @@map("returns")
+}
+
+// Cómo se resolvió la garantía (sección 2.3). PENDIENTE no se guarda: es una
+// reserva sin fila en deposit_resolutions.
+enum DepositStatus {
+  LIBERADA
+  RETENIDA
+}
+
+// Resolución del depósito de garantía de una reserva (H09). Es un registro
+// simulado: no mueve dinero. Ver docs/modulos/devoluciones.md.
+model DepositResolution {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Una sola resolución por reserva (UNIQUE). RESTRICT: es un registro
+  // financiero y no desaparece con la reserva.
+  reservationId String      @unique @map("reservation_id") @db.Uuid
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+
+  // Importes con dos decimales. Los CHECK van a mano en la migración:
+  // los tres >= 0, retained_amount <= original_deposit y
+  // retained_amount + released_amount = original_deposit.
+  originalDeposit Decimal @map("original_deposit") @db.Decimal(12, 2)
+  retainedAmount  Decimal @map("retained_amount") @db.Decimal(12, 2)
+  releasedAmount  Decimal @map("released_amount") @db.Decimal(12, 2)
+
+  // CHECK deposit_resolutions_status_check: RETENIDA si retained_amount > 0
+  // y LIBERADA si es 0.
+  status DepositStatus
+  // CHECK deposit_resolutions_reason_check: obligatorio (con algún carácter
+  // que no sea espacio) si hay retención; opcional si no.
+  reason String?       @db.VarChar(500)
+
+  resolvedAt DateTime @default(now()) @map("resolved_at")
+
+  @@map("deposit_resolutions")
 }
 
 // Calificación que el arrendador le da al arrendatario de una reserva
