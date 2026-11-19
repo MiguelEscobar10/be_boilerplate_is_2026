@@ -1,9 +1,35 @@
 import { ApiProperty } from '@nestjs/swagger';
-import type { Message } from '@PrismaClient';
+import type { Message, ReservationStatus } from '@PrismaClient';
 
 export class ConversationCreatedDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
+}
+
+/**
+ * Respuesta de POST /reservas/{id}/conversacion (H16). Además del id, el
+ * estado de la reserva y si se puede escribir, para que la pantalla sepa si
+ * muestra la caja de texto o solo el historial sin otra llamada.
+ */
+export class ReservationConversationDto extends ConversationCreatedDto {
+  @ApiProperty({
+    enum: [
+      'PENDIENTE',
+      'CONFIRMADA',
+      'RECHAZADA',
+      'CANCELADA',
+      'EN_CURSO',
+      'COMPLETADA',
+    ],
+    example: 'CONFIRMADA',
+  })
+  estadoReserva!: ReservationStatus;
+
+  @ApiProperty({
+    example: true,
+    description: 'true con la reserva CONFIRMADA o EN_CURSO.',
+  })
+  puedeEscribir!: boolean;
 }
 
 export class MessageCreatedDto {

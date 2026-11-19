@@ -30,7 +30,9 @@ import {
   MessageCreatedDto,
   MessageDto,
   MessagePageDto,
+  ReservationConversationDto,
 } from '@Messaging/dto';
+import { motivoSinEscritura } from '@Messaging/errors';
 import { MessagingService } from '@Messaging/services';
 import type { User } from '@PrismaClient';
 
@@ -83,11 +85,11 @@ export class MessagingController {
       'Solo para quien reservó y el dueño de la publicación. Se crea con la reserva CONFIRMADA o EN_CURSO; si ya existe se devuelve en cualquier estado para leer el historial.',
   })
   @ApiCreatedResponse({
-    type: ConversationCreatedDto,
+    type: ReservationConversationDto,
     description: 'Conversación nueva.',
   })
   @ApiOkResponse({
-    type: ConversationCreatedDto,
+    type: ReservationConversationDto,
     description: 'Ya existía; se devuelve esa.',
   })
   @ApiForbiddenResponse({
@@ -104,13 +106,15 @@ export class MessagingController {
     @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) reservationId: string,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<ConversationCreatedDto> {
-    const { conversation, created } = await this.messaging.openForReservation(
-      reservationId,
-      user.id,
-    );
+  ): Promise<ReservationConversationDto> {
+    const { conversation, created, status } =
+      await this.messaging.openForReservation(reservationId, user.id);
     res.status(created ? HttpStatus.CREATED : HttpStatus.OK);
-    return { id: conversation.id };
+    return {
+      id: conversation.id,
+      estadoReserva: status,
+      puedeEscribir: motivoSinEscritura(status) === null,
+    };
   }
 
   @Roles('ARRENDATARIO', 'ARRENDADOR')
