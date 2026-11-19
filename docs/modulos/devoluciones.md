@@ -121,3 +121,75 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/si_be_boilerplate_te
   npx prisma migrate deploy
 npm run test:e2e
 ```
+
+## BE-09.1. Registro de devolución (MP4-77)
+
+### Endpoints
+
+| Método | Ruta | Rol | Respuesta |
+|---|---|---|---|
+| `POST` | `/api/v1/reservas/{id}/devolucion` | `ARRENDADOR` dueño del bien | `201 { devolucionId, reservaId, devolucionRegistrada: true }` |
+| `GET` | `/api/v1/reservas/{id}/devolucion` | arrendador o arrendatario de la reserva | `200 { devolucionId, reservaId, fechaReal, estadoFinal, danos }` |
+
+El `POST` recibe JSON:
+
+```json
+{
+  "fechaReal": "2026-11-12T12:15:00-06:00",
+  "estadoFinal": "CON_OBSERVACIONES",
+  "danos": "Rayón lateral"
+}
+```
+
+- `fechaReal`: ISO 8601 con zona horaria; se guarda en UTC.
+- `estadoFinal`: `SIN_OBSERVACIONES` o `CON_OBSERVACIONES`.
+- `danos`: obligatorio (1 a 500 caracteres, se guarda sin los espacios de los
+  extremos) con `CON_OBSERVACIONES`; ausente o vacío con `SIN_OBSERVACIONES`.
+
+El `GET` lo agrega esta task para que se puedan consultar las observaciones
+(criterio técnico) y para FE-09.1.
+
+### Reglas (en este orden)
+
+1. **400**: fecha que no es ISO 8601, estado final fuera del catálogo, daños
+   que no corresponden al estado final o de más de 500, o un campo de más.
+2. **404**: la reserva no existe. **403**: la cuenta no es `ARRENDADOR` o la
+   reserva no es de un bien suyo.
+3. **409**: la reserva ya tiene devolución, o no hay entrega previa (no está
+   `EN_CURSO`).
+4. **400**: la fecha real es anterior a la entrega (`deliveries.delivered_at`).
+   Va después porque hace falta leer la entrega; se acepta la misma fecha de la
+   entrega.
+
+Ninguna regla que falle deja datos.
+
+### La transacción
+
+Se bloquea la fila de la reserva (`SELECT ... FOR UPDATE`), se vuelve a
+comprobar que esté `EN_CURSO` y se crea la devolución. Si dos peticiones
+llegan a la vez, la segunda espera el bloqueo y choca con el `UNIQUE` de
+`reservation_id`: recibe **409** (hay prueba).
+
+### Decisiones
+
+- **La reserva sigue `EN_CURSO` después de la devolución.** Pasa a
+  `COMPLETADA` cuando se resuelve la garantía (BE-09.2), que es el criterio de
+  aceptación de H09: "la devolución y la garantía quedaron registradas".
+- **Los identificadores son UUID**, como en el resto del proyecto (el contrato
+  del brief los muestra como enteros).
+- **`observations` no se llena desde la API.** El contrato de BE-09.1 solo
+  trae `danos`; la columna queda disponible para una nota general.
+- **No se rechaza una fecha futura.** El contrato solo pide que no anteceda a
+  la entrega.
+
+### Pruebas
+
+- [`src/returns/services/returns.service.spec.ts`](../../src/returns/services/returns.service.spec.ts):
+  el orden de las reglas (400, 404, 403, 409), la relación entre estado final y
+  daños, el límite exacto de la fecha de entrega y los conflictos de la
+  transacción.
+- [`test/returns.e2e-spec.ts`](../../test/returns.e2e-spec.ts): devolución
+  válida con y sin observaciones, la fecha con zona horaria, la segunda
+  devolución (409) y dos simultáneas, reservas sin entrega, los 400, otro
+  arrendador y el arrendatario (403), 401, 404, y la consulta por cada
+  participante (y 404 para el resto).
