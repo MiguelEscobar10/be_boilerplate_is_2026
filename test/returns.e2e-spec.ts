@@ -241,7 +241,9 @@ describe('devoluciones (BE-09.1)', () => {
         giveBack(reservation.id),
       ]);
 
-      expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
+      expect(results.map((r) => r.status).sort((a, b) => a - b)).toEqual([
+        201, 409,
+      ]);
       expect(await returnsOf(reservation.id)).toBe(1);
     });
 
