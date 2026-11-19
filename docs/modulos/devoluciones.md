@@ -193,3 +193,105 @@ llegan a la vez, la segunda espera el bloqueo y choca con el `UNIQUE` de
   devolución (409) y dos simultáneas, reservas sin entrega, los 400, otro
   arrendador y el arrendatario (403), 401, 404, y la consulta por cada
   participante (y 404 para el resto).
+
+## BE-09.2. Resolución del depósito y cierre (MP4-78)
+
+### Endpoints
+
+| Método | Ruta | Rol | Respuesta |
+|---|---|---|---|
+| `POST` | `/api/v1/reservas/{id}/deposito/resolucion` | `ARRENDADOR` dueño del bien | `200` con el estado de la garantía |
+| `GET` | `/api/v1/reservas/{id}/deposito/resolucion` | arrendador o arrendatario de la reserva | `200` con el estado de la garantía |
+
+El `POST` recibe `{ "montoRetenido": 5.00, "motivo": "Daño reportado" }` y
+los dos responden:
+
+```json
+{
+  "depositoOriginal": 20.0,
+  "montoRetenido": 5.0,
+  "montoLiberado": 15.0,
+  "estadoGarantia": "RETENIDA",
+  "motivo": "Daño reportado",
+  "estadoReserva": "COMPLETADA",
+  "simulado": true
+}
+```
+
+El `GET` lo agrega esta task para FE-09.1. Antes de resolver responde
+`estadoGarantia: "PENDIENTE"`, con `montoRetenido`, `montoLiberado` y `motivo`
+en `null` y el `estadoReserva` actual.
+
+### Reglas (en este orden)
+
+1. **400**: `montoRetenido` negativo, con más de dos decimales o que no es un
+   número; retención (`montoRetenido > 0`) sin `motivo`; `motivo` de más de
+   500; un campo de más.
+2. **404**: la reserva no existe. **403**: la cuenta no es `ARRENDADOR` o la
+   reserva no es de un bien suyo.
+3. **409**: la garantía ya está resuelta.
+4. **422**, con `codigo` para que el frontend distinga el caso:
+
+   | `codigo` | Cuándo | `message` |
+   |---|---|---|
+   | `DEVOLUCION_NO_REGISTRADA` | La reserva no tiene devolución. | Primero registra la devolución |
+   | `RETENCION_SUPERA_DEPOSITO` | `montoRetenido` mayor que el depósito. | El monto retenido no puede superar el depósito |
+   | `RETENCION_SIN_OBSERVACIONES` | `montoRetenido > 0` con una devolución `SIN_OBSERVACIONES`. | No se puede retener la garantía de una devolución sin observaciones |
+
+Ninguna regla que falle deja datos: ni resolución, ni cambio de estado, ni
+aviso.
+
+### Cálculo
+
+`montoLiberado = depósito de la reserva - montoRetenido`, con decimales exactos
+(`Prisma.Decimal`), no con números de JavaScript. `estadoGarantia` es
+`RETENIDA` si se retuvo algo y `LIBERADA` si no. Una reserva sin garantía
+(depósito 0) se cierra con los dos importes en 0. Con una devolución
+`CON_OBSERVACIONES` también se puede liberar todo (`montoRetenido = 0`).
+
+### La transacción
+
+Se bloquea la fila de la reserva (`SELECT ... FOR UPDATE`), se vuelve a
+comprobar que esté `EN_CURSO`, se guarda la resolución y la reserva pasa a
+`COMPLETADA`. Si dos peticiones llegan a la vez, la segunda recibe **409** y
+no se avisa dos veces (hay prueba).
+
+### Aviso
+
+Después de guardar, se llama al servicio de avisos (BE-20.1):
+
+| Campo | Valor |
+|---|---|
+| `destinatarioId` | El arrendatario de la reserva. |
+| `titulo` | `Depósito de garantía resuelto` |
+| `mensaje` | `El depósito de garantía de «<bien>» fue resuelto: monto liberado $15.00, monto retenido $5.00.` |
+| `moduloOrigen` | `PAGOS_GARANTIA` |
+| `referencia` | `{ tipo: 'reserva', id: <id de la reserva> }` |
+
+Si el aviso falla, la resolución ya está guardada: se registra el error en el
+log y la respuesta sigue siendo 200, igual que en los pagos.
+
+### Decisiones
+
+- **La referencia del aviso es la reserva.** Es lo que pide la task de BE-09.2.
+  El contrato del servicio de avisos
+  ([`servicio-avisos.md`](../contratos/servicio-avisos.md)) proponía
+  `{ tipo: 'garantia', id }`. **Pendiente de confirmar** con quien lleva la
+  bandeja; el cambio es una línea en `deposit-resolutions.service.ts`.
+- **El motivo sin retención es opcional** y se guarda si viene.
+- **`simulado: true` siempre.** No hay pasarela: la resolución es solo un
+  registro.
+- **Mismo módulo que la devolución** (`src/returns`): las dos partes de H09
+  comparten la reserva y sus reglas.
+
+### Pruebas
+
+- [`src/returns/services/deposit-resolutions.service.spec.ts`](../../src/returns/services/deposit-resolutions.service.spec.ts):
+  el cálculo a dos decimales, el orden de las reglas (400, 404, 403, 409, 422
+  con su `codigo` y mensaje), el contenido del aviso y que un aviso fallido no
+  rompe la resolución.
+- [`test/returns.deposit.e2e-spec.ts`](../../test/returns.deposit.e2e-spec.ts):
+  retención parcial y total, liberación completa, reserva sin garantía, el paso
+  a `COMPLETADA`, el aviso en la bandeja del arrendatario, la segunda
+  resolución (409) y dos simultáneas, los tres 422, los 400, 403, 401, 404 y la
+  consulta (`PENDIENTE` antes de resolver).
