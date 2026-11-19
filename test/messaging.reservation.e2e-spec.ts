@@ -146,7 +146,13 @@ describe('mensajería: conversación de la reserva (BE-16.1)', () => {
       const first = await open(reservationId).expect(201);
       const second = await open(reservationId).expect(200);
 
-      expect(second.body).toEqual({ id: first.body.id });
+      const esperado = {
+        id: first.body.id,
+        estadoReserva: 'CONFIRMADA',
+        puedeEscribir: true,
+      };
+      expect(first.body).toEqual(esperado);
+      expect(second.body).toEqual(esperado);
       const saved = await prisma.conversation.findUniqueOrThrow({
         where: { id: first.body.id },
       });
@@ -170,7 +176,11 @@ describe('mensajería: conversación de la reserva (BE-16.1)', () => {
     it('con la reserva EN_CURSO también se abre', async () => {
       const reservationId = await newReservation('EN_CURSO');
 
-      await open(reservationId).expect(201);
+      const { body } = await open(reservationId).expect(201);
+      expect(body).toMatchObject({
+        estadoReserva: 'EN_CURSO',
+        puedeEscribir: true,
+      });
     });
 
     it('si los dos la abren al mismo tiempo queda una sola', async () => {
@@ -298,8 +308,14 @@ describe('mensajería: conversación de la reserva (BE-16.1)', () => {
         expect(
           page.items.map((m: { contenido: string }) => m.contenido),
         ).toEqual(['Gracias por todo']);
-        // También se puede volver a pedir la conversación para leerla.
-        await open(reservationId).expect(200);
+        // También se puede volver a pedir la conversación para leerla, y la
+        // respuesta avisa que ya no se escribe.
+        const { body: reopened } = await open(reservationId).expect(200);
+        expect(reopened).toEqual({
+          id: conversation.id,
+          estadoReserva: status,
+          puedeEscribir: false,
+        });
       },
     );
 
