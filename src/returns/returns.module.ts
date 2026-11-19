@@ -1,14 +1,28 @@
 import { Module } from '@nestjs/common';
-import { ReturnsController } from '@Returns/controllers';
-import { ReturnRepository } from '@Returns/repositories';
-import { ReturnsService } from '@Returns/services';
+import { NotificationsModule } from '@Notifications';
+import {
+  DepositResolutionsController,
+  ReturnsController,
+} from '@Returns/controllers';
+import {
+  DepositResolutionRepository,
+  ReturnRepository,
+} from '@Returns/repositories';
+import { DepositResolutionsService, ReturnsService } from '@Returns/services';
 
 /**
- * Módulo 4 (H09): devolución del equipo o fin del uso del espacio. Registra
- * la devolución de una reserva EN_CURSO; la garantía se resuelve después.
+ * Módulo 4 (H09): devolución del equipo o fin del uso del espacio y
+ * resolución de la garantía. Al resolver, la reserva pasa de EN_CURSO a
+ * COMPLETADA en una sola transacción y se avisa al arrendatario.
  */
 @Module({
-  controllers: [ReturnsController],
-  providers: [ReturnsService, ReturnRepository],
+  imports: [NotificationsModule],
+  controllers: [ReturnsController, DepositResolutionsController],
+  providers: [
+    ReturnsService,
+    ReturnRepository,
+    DepositResolutionsService,
+    DepositResolutionRepository,
+  ],
 })
 export class ReturnsModule {}
