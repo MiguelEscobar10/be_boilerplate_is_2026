@@ -17,6 +17,12 @@ import {
   type CreateListingDto,
   type ListListingsQueryDto,
 } from '@Listings/dto';
+// Ruta directa y no `@Availability/services`: ese índice importa a este
+// servicio y formaría un ciclo.
+import {
+  DAY_MS,
+  startOfLocalDay,
+} from '../../availability/services/local-time.js';
 import type { Listing, ListingImage } from '@PrismaClient';
 
 export const MAX_IMAGES = 10;
@@ -71,10 +77,32 @@ export class ListingsService {
     }
   }
 
-  /** Catálogo público (H02): solo activas, más reciente primero. */
+  /**
+   * Catálogo público (H02) con filtros (H11): solo activas, más reciente
+   * primero. Los filtros se combinan: se devuelven las que cumplen todos.
+   *
+   * @throws {BadRequestException} si precioMin supera a precioMax, falta una
+   *   de las dos fechas, una fecha no existe o `hasta` es anterior a `desde`.
+   */
   async search(query: ListListingsQueryDto): Promise<ListingPageDto> {
+    const { precioMin, precioMax } = query;
+    if (
+      precioMin !== undefined &&
+      precioMax !== undefined &&
+      precioMin > precioMax
+    ) {
+      throw new BadRequestException(
+        'precioMin no puede ser mayor que precioMax.',
+      );
+    }
+
     const { items, total } = await this.listingRepository.search({
       text: query.buscar || undefined,
+      type: query.tipo,
+      location: query.ubicacion || undefined,
+      minRate: precioMin,
+      maxRate: precioMax,
+      available: this.availableRange(query.desde, query.hasta),
       page: query.page,
       limit: query.limit,
     });
@@ -83,6 +111,34 @@ export class ListingsService {
       page: query.page,
       total,
     };
+  }
+
+  /** Convierte `desde` y `hasta` (días de El Salvador, incluidos) en [from, to). */
+  private availableRange(
+    desde?: string,
+    hasta?: string,
+  ): { from: Date; to: Date } | undefined {
+    if (!desde && !hasta) return undefined;
+    if (!desde || !hasta) {
+      throw new BadRequestException(
+        'Para filtrar por fechas disponibles enviá desde y hasta.',
+      );
+    }
+    const from = startOfLocalDay(desde);
+    if (!from) {
+      throw new BadRequestException(`La fecha desde (${desde}) no existe.`);
+    }
+    const lastDay = startOfLocalDay(hasta);
+    if (!lastDay) {
+      throw new BadRequestException(`La fecha hasta (${hasta}) no existe.`);
+    }
+    if (lastDay < from) {
+      throw new BadRequestException(
+        'La fecha hasta no puede ser anterior a desde.',
+      );
+    }
+    // `hasta` va incluido: el rango termina cuando empieza el día siguiente.
+    return { from, to: new Date(lastDay.getTime() + DAY_MS) };
   }
 
   async findById(id: string): Promise<ListingWithImages> {

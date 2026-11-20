@@ -100,13 +100,16 @@ export class ListingsController {
   /**
    * Catálogo público (H02): publicaciones activas cuyo nombre o descripción
    * contienen `buscar`, sin distinguir mayúsculas ni acentos. De la más
-   * reciente a la más antigua, 12 por página.
+   * reciente a la más antigua, 12 por página. Acepta los filtros de H11:
+   * `tipo`, `ubicacion`, `precioMin`, `precioMax` y `desde` con `hasta`.
    */
   @Public()
   @Get()
-  @ApiOperation({ summary: 'Lista y busca publicaciones activas' })
+  @ApiOperation({ summary: 'Lista, busca y filtra publicaciones activas' })
   @ApiOkResponse({ type: ListingPageDto })
-  @ApiBadRequestResponse({ description: 'page, limit o buscar inválidos.' })
+  @ApiBadRequestResponse({
+    description: 'Paginación, búsqueda o filtros inválidos.',
+  })
   search(@Query() query: ListListingsQueryDto): Promise<ListingPageDto> {
     return this.listingsService.search(query);
   }
