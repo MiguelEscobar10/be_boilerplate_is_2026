@@ -27,6 +27,12 @@
  *
  * El contador se actualiza cada 30 s; el script usa el reloj de Playwright
  * (page.clock) para adelantar el tiempo en vez de esperarlo.
+ *
+ * Resultado esperado hoy: 9 de 10. P05 falla con «D01 (defecto conocido, no
+ * corregido)»: con la bandeja abierta, el tick de 30 s actualiza el contador
+ * pero no la lista (ver docs/qa/QA-10.1-avisos-bandeja.md). Cuando se
+ * corrija D01, P05 pasará y el resultado será 10 de 10. El proceso termina
+ * con código 1 mientras algún caso falle.
  */
 import { randomUUID } from 'node:crypto';
 import { dirname, isAbsolute } from 'node:path';
@@ -336,8 +342,7 @@ try {
     return `antes ${antes} avisos; tras «Actualizar» ${antes + 1}, el nuevo arriba como pendiente (reserva ${nueva.id.slice(0, 8)}); contador 4 = 4 pendientes`;
   });
 
-  let observacionP05 = '';
-  await caso('P05', 'Bandeja abierta durante el tick de 30 s (contador vs lista)', async () => {
+  await caso('P05', 'Bandeja abierta durante el tick de 30 s: el contador coincide con la lista', async () => {
     await solicitud(T); // A: +1 en el backend → 5
     await page.clock.runFor(30_000);
     await esperar(async () => (await contador(page)) === 5, 'el contador muestra 5');
@@ -346,12 +351,22 @@ try {
     const pend = await pendientesEnLista(page);
     const total = await items(page).count();
     await foto(page, 'P05-tick-con-bandeja-abierta');
-    observacionP05 = `tras el tick, el contador muestra ${badge} y la lista abierta tiene ${pend} pendientes (${total} avisos)`;
+    const observado = `tras el tick, el contador muestra ${badge} y la lista abierta tiene ${pend} pendientes (${total} avisos)`;
+
+    // Se resincroniza antes de comparar para que P06 en adelante partan del
+    // mismo estado aunque P05 falle.
     await panel(page).getByRole('button', { name: 'Actualizar' }).click();
     await listaCargada(page);
     await esperar(async () => (await pendientesEnLista(page)) === 5, 'la lista muestra 5 pendientes');
     const despues = `${await contador(page)} / ${await pendientesEnLista(page)}`;
-    return `${observacionP05}; tras «Actualizar»: contador / pendientes = ${despues}`;
+
+    // Esperado: tras el tick, el contador y los pendientes de la bandeja
+    // abierta coinciden. Hoy no pasa: es el defecto D01 de QA-10.1.
+    comprobar(
+      badge === pend,
+      `D01 (defecto conocido, no corregido): ${observado}; esperado: que coincidan sin pulsar «Actualizar»; tras «Actualizar»: contador / pendientes = ${despues}`,
+    );
+    return `${observado}; tras «Actualizar»: contador / pendientes = ${despues}`;
   });
 
   let marcadaTexto = '';
