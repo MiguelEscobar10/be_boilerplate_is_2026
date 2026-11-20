@@ -341,3 +341,67 @@ Ejemplo:
 (29 pruebas): cada filtro por separado, combinados, con paginación, inactivas,
 fechas disponibles con reservas en cada estado y bloqueos, los extremos del
 rango y los 400.
+
+## BE-12.1. Detalle completo de la publicación (MP4-37)
+
+Amplía `GET /api/v1/publicaciones/{id}` (BE-01.1) con todo lo que el
+arrendatario necesita antes de reservar (H12). Sigue siendo pública.
+
+```json
+{
+  "id": "7c1e...",
+  "tipo": "EQUIPO",
+  "nombre": "Taladro",
+  "descripcion": "Percutor de 800 W",
+  "ubicacion": "San Salvador",
+  "tarifa": { "monto": 15, "unidad": "HORA" },
+  "deposito": 20,
+  "condiciones": "Devolver limpio",
+  "imagenes": [{ "orden": 0, "url": "/api/v1/publicaciones/7c1e.../imagenes/0" }],
+  "promedioBien": 4.5,
+  "promedioArrendador": 4.8,
+  "totalCalificaciones": 6,
+  "requiereVerificacion": false
+}
+```
+
+Además conserva los campos de BE-01.1: `activo`, `arrendadorId`,
+`tarifaMonto`, `tarifaUnidad`, `depositoMonto` y `createdAt`.
+
+### Reglas
+
+- Las fotos salen en orden (`orden` 0, 1, 2...).
+- `promedioBien` es el de esa publicación; `promedioArrendador` junta las
+  calificaciones de todas las publicaciones del dueño. Los dos con un decimal.
+- `totalCalificaciones` cuenta las de esa publicación.
+- **Sin calificaciones:** los promedios son `null` y el total es `0`.
+- **Desactivada o inexistente:** `404` con `codigo:
+  "PUBLICACION_NO_DISPONIBLE"`. La respuesta es idéntica en los dos casos.
+- Un `id` que no es UUID es `400`.
+- Del arrendador solo sale su `id`: ni nombre, ni correo, ni teléfono.
+
+### Decisiones
+
+- **Se amplía sin quitar nada.** La ficha muestra `tarifa { monto, unidad }` y
+  `deposito`; se agregan como número, pero `tarifaMonto`, `tarifaUnidad` y
+  `depositoMonto` se quedan porque el frontend ya los usa (detalle de FE-01.1,
+  pagos y mensajería). Se pueden retirar cuando nadie los lea.
+- **`requiereVerificacion`** no está en la ficha. Lo pidió Ricardo en MP4-37
+  para FE-19.1: el interruptor del dueño y la insignia del detalle necesitan
+  leer el valor, y solo existía el `PATCH` para cambiarlo.
+- **Los promedios vienen de BE-17.1**
+  (`ListingRatingsService.promedioCalificaciones`), para que la regla de
+  redondeo sea una sola. El total lo cuenta `ListingRepository.countRatings`.
+- **`id` es UUID** y `orden` empieza en 0, como en BE-01.1; la ficha usa `17`
+  y `1` como ejemplo.
+- **El `codigo` va en todo 404 de publicación**, porque sale de
+  `ListingsService.findById`: también lo reciben la disponibilidad y los
+  demás endpoints que cuelgan de una publicación.
+
+### Pruebas
+
+[`test/listings.detail.e2e-spec.ts`](../../test/listings.detail.e2e-spec.ts)
+(11 pruebas): el detalle completo sin sesión, fotos en orden, promedios por
+publicación y por arrendador, sin calificaciones, una calificación nueva, que
+no salen datos privados, los dos 404 con su `codigo` e idénticos, el 400 y el
+cambio al desactivar.
