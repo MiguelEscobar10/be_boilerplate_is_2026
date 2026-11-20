@@ -53,6 +53,13 @@ export class LandlordRequestDto {
   @ApiPropertyOptional({ nullable: true })
   motivoRechazo!: string | null;
 
+  @ApiProperty({
+    description:
+      'Si el arrendador ya calificó al arrendatario de esta reserva (H18). La pantalla muestra "Calificar al arrendatario" solo en las COMPLETADA que lo tienen en false.',
+    example: false,
+  })
+  arrendatarioCalificado!: boolean;
+
   static fromRow(row: LandlordRequestRow): LandlordRequestDto {
     return {
       id: row.id,
@@ -71,6 +78,7 @@ export class LandlordRequestDto {
       creadaAt: row.createdAt,
       decididaAt: row.decidedAt,
       motivoRechazo: row.rejectionReason,
+      arrendatarioCalificado: row.tenantRating !== null,
     };
   }
 }
