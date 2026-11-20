@@ -183,8 +183,8 @@ ruta. Ver la sección BE-04.1 en [`reservas.md`](./reservas.md).
   y los dos 404; todos los 400; y que el panel de solicitudes marca las
   reservas ya calificadas.
 
-Las reservas `COMPLETADA` de la prueba se crean directo en la base, porque
-llegar a ese estado requiere la devolución (BE-09.2), que todavía no está en
-`main`. Quité la regla de `COMPLETADA` y la del dueño por separado y en los
+Las reservas `COMPLETADA` de la prueba se crean directo en la base, sin pasar
+por la entrega y la devolución (BE-08.1 y BE-09.2), para probar cada estado
+por separado. Quité la regla de `COMPLETADA` y la del dueño por separado y en los
 dos casos la prueba falla.
 
