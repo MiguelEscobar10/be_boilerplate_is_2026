@@ -53,6 +53,8 @@ módulo en [`modulos/`](modulos/).
 | Notificaciones (M8) | PATCH | `/api/v1/notificaciones/{id}/leida` | con sesión | Marca como leída una notificación propia |
 | Pagos (M4) | POST | `/api/v1/reservas/{id}/pagos/simulados` | ARRENDATARIO | Paga una reserva confirmada con una tarjeta de prueba |
 | Reportes (M9) | GET | `/api/v1/reportes/ocupacion` | ARRENDADOR | Tasa de ocupación de los bienes del arrendador en un período |
+| Reservas y disponibilidad (M3) | POST | `/api/v1/reservas` | ARRENDATARIO | Solicita una reserva: queda PENDIENTE, con el costo calculado por el servidor |
+| Reservas y disponibilidad (M3) | GET | `/api/v1/reservas/{id}` | con sesión | Detalle de una reserva propia (del arrendatario o del dueño de la publicación) |
 | Reservas y disponibilidad (M3) | GET | `/api/v1/arrendador/solicitudes` | ARRENDADOR | Solicitudes de reserva de las publicaciones del arrendador |
 | Reservas y disponibilidad (M3) | PATCH | `/api/v1/reservas/{id}/decision` | ARRENDADOR | Aprueba o rechaza una solicitud de reserva PENDIENTE |
 | Pagos (M4) | POST | `/api/v1/reservas/{id}/deposito/resolucion` | ARRENDADOR | Resuelve la garantía y pasa la reserva a COMPLETADA (simulado) |
