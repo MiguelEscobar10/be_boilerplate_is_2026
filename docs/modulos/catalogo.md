@@ -267,8 +267,7 @@ No agrega tablas ni columnas.
 
 | Índice | Columnas | Filtro que sostiene |
 |---|---|---|
-| `listings_is_active_type_created_at_id_idx` | B-tree `(is_active, type, created_at DESC, id DESC)` | Tipo (`EQUIPO` o `ESPACIO`), conservando el orden por defecto. |
-| `listings_is_active_rate_amount_idx` | B-tree `(is_active, rate_amount)` | Rango de tarifa (precio mínimo y máximo). |
+| `listings_is_active_type_rate_amount_idx` | B-tree `(is_active, type, rate_amount)` | Tipo (`EQUIPO` o `ESPACIO`) y rango de tarifa sobre las activas. |
 | `listings_location_search_idx` | GIN (`gin_trgm_ops`) sobre `search_text(location)` | Ubicación que contiene el texto, sin distinguir mayúsculas ni acentos. |
 
 ### Decisiones
@@ -279,12 +278,13 @@ No agrega tablas ni columnas.
   (DB-03.1) y de `availability_blocks` (DB-14.1).
 - **La ubicación reutiliza `search_text` y `pg_trgm` de DB-02.1**, así
   `san salvador` encuentra `San Salvador` y `cuscatlan` encuentra `Cuscatlán`.
-- **Todos empiezan por `is_active`**, porque el catálogo público siempre
-  filtra las activas.
-- Los dos B-tree están en `schema.prisma`; el GIN solo en la migración.
+- **El B-tree empieza por `is_active`**, porque el catálogo público siempre
+  filtra las activas. Un rango de tarifa sin tipo no lo aprovecha completo;
+  con el volumen del proyecto no hace falta otro índice.
+- El B-tree está en `schema.prisma`; el GIN solo en la migración.
 
 ### Prueba
 
 En [`test/listings.search.constraints.e2e-spec.ts`](../../test/listings.search.constraints.e2e-spec.ts):
-que existen los tres índices y que el planificador puede usarlos para filtrar
-por tipo, por tarifa y por ubicación.
+que existen los dos índices y que el planificador puede usarlos para filtrar
+por tipo con tarifa y por ubicación.
