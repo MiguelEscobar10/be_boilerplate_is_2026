@@ -149,19 +149,23 @@ export function avisarPagoRechazado(
 export function avisarGarantiaResuelta(
   avisos: AvisosService,
   garantia: {
-    id: string;
+    /** Id de la reserva: la garantía se resuelve una vez por reserva. */
+    reservaId: string;
     arrendatarioId: string;
     bienNombre: string;
-    estado: 'LIBERADA' | 'RETENIDA';
+    /** En USD. Liberado más retenido es el depósito de la reserva. */
+    montoLiberado: number;
+    montoRetenido: number;
   },
 ): Promise<AvisoRegistrado> {
-  const resultado = garantia.estado === 'LIBERADA' ? 'liberado' : 'retenido';
+  const liberado = `$${garantia.montoLiberado.toFixed(2)}`;
+  const retenido = `$${garantia.montoRetenido.toFixed(2)}`;
   return avisos.notificar({
     destinatarioId: garantia.arrendatarioId,
     titulo: 'Depósito de garantía resuelto',
-    mensaje: `El depósito de garantía de «${garantia.bienNombre}» fue ${resultado}.`,
+    mensaje: `El depósito de garantía de «${garantia.bienNombre}» fue resuelto: monto liberado ${liberado}, monto retenido ${retenido}.`,
     moduloOrigen: ModuloOrigen.PAGOS_GARANTIA,
-    referencia: { tipo: 'garantia', id: garantia.id },
+    referencia: { tipo: 'reserva', id: garantia.reservaId },
   });
 }
 

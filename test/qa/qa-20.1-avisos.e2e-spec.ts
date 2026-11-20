@@ -397,10 +397,11 @@ describe('QA-20.1: servicio de avisos y su contrato', () => {
 
     it('C18: BE-09.2 garantía resuelta llega al arrendatario', async () => {
       const garantia = {
-        id: randomUUID(),
+        reservaId: randomUUID(),
         arrendatarioId: user.b.id,
         bienNombre: 'Taladro percutor',
-        estado: 'LIBERADA' as const,
+        montoLiberado: 15,
+        montoRetenido: 5,
       };
       const item = await esperarEnBandeja(
         () => avisarGarantiaResuelta(avisos, garantia),
@@ -408,8 +409,10 @@ describe('QA-20.1: servicio de avisos y su contrato', () => {
       );
       expect(item).toMatchObject({
         titulo: 'Depósito de garantía resuelto',
+        mensaje:
+          'El depósito de garantía de «Taladro percutor» fue resuelto: monto liberado $15.00, monto retenido $5.00.',
         moduloOrigen: 'PAGOS_GARANTIA',
-        referencia: { tipo: 'garantia', id: garantia.id },
+        referencia: { tipo: 'reserva', id: garantia.reservaId },
       });
     });
 
