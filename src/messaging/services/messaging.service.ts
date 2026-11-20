@@ -7,7 +7,7 @@ import {
   reservaNoEncontrada,
 } from '@Messaging/errors';
 import { ConversationRepository } from '@Messaging/repositories';
-import type { Conversation, Message } from '@PrismaClient';
+import type { Conversation, Message, ReservationStatus } from '@PrismaClient';
 
 const NO_ENCONTRADA = 'La conversación no existe.';
 
@@ -71,7 +71,11 @@ export class MessagingService {
   async openForReservation(
     reservationId: string,
     userId: string,
-  ): Promise<{ conversation: Conversation; created: boolean }> {
+  ): Promise<{
+    conversation: Conversation;
+    created: boolean;
+    status: ReservationStatus;
+  }> {
     const reservation = await this.conversations.findReservationForParticipant(
       reservationId,
       userId,
@@ -79,7 +83,8 @@ export class MessagingService {
     if (!reservation) throw reservaNoEncontrada();
 
     const existing = await this.conversations.findByReservation(reservationId);
-    if (existing) return { conversation: existing, created: false };
+    const { status } = reservation;
+    if (existing) return { conversation: existing, created: false, status };
 
     const motivo = motivoSinEscritura(reservation.status);
     if (motivo) throw conflictoConversacion(motivo);
@@ -90,12 +95,12 @@ export class MessagingService {
       tenantId: reservation.tenantId,
       landlordId: reservation.listing.landlordId,
     });
-    if (created) return { conversation: created, created: true };
+    if (created) return { conversation: created, created: true, status };
 
     // La otra persona de la reserva la abrió al mismo tiempo: se devuelve esa.
     const raced = await this.conversations.findByReservation(reservationId);
     if (!raced) throw new NotFoundException(NO_ENCONTRADA);
-    return { conversation: raced, created: false };
+    return { conversation: raced, created: false, status };
   }
 
   /**
