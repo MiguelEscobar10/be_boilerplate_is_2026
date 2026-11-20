@@ -15,8 +15,8 @@ import { resolveTestDatabaseUrl } from '../helpers/test-database.js';
  * de "Mis solicitudes".
  *
  * Las reservas se crean directo en la base en el estado que pide cada caso:
- * llegar a COMPLETADA requiere la devolución (BE-09.2), que todavía no está
- * en main.
+ * así cada caso prueba un estado sin pasar por la entrega y la devolución
+ * (BE-08.1 y BE-09.2).
  */
 
 type Session = { token: string; userId: string };
