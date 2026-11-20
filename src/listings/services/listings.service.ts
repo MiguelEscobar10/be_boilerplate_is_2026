@@ -11,7 +11,12 @@ import {
   ImageStorageService,
   type ImageKind,
 } from './image-storage.service.js';
-import type { CreateListingDto } from '@Listings/dto';
+import {
+  ListingPageDto,
+  ListingSummaryDto,
+  type CreateListingDto,
+  type ListListingsQueryDto,
+} from '@Listings/dto';
 import type { Listing, ListingImage } from '@PrismaClient';
 
 export const MAX_IMAGES = 10;
@@ -64,6 +69,20 @@ export class ListingsService {
       await this.storage.removeMany(imagePaths);
       throw error;
     }
+  }
+
+  /** Catálogo público (H02): solo activas, más reciente primero. */
+  async search(query: ListListingsQueryDto): Promise<ListingPageDto> {
+    const { items, total } = await this.listingRepository.search({
+      text: query.buscar || undefined,
+      page: query.page,
+      limit: query.limit,
+    });
+    return {
+      items: items.map((row) => ListingSummaryDto.fromRow(row)),
+      page: query.page,
+      total,
+    };
   }
 
   async findById(id: string): Promise<ListingWithImages> {
