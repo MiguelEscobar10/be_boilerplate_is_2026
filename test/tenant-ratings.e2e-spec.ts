@@ -14,8 +14,8 @@ import { createTestPrismaClient } from './helpers/test-database.js';
  *
  * Crea dos arrendadores y un arrendatario con email único, firma sus tokens
  * con el JwtService de la app y al final borra solo lo que creó. Las reservas
- * se crean directo en la base con el estado que cada caso necesita: llegar a
- * COMPLETADA requiere la devolución (BE-09.2), que todavía no está en main.
+ * se crean directo en la base con el estado que cada caso necesita, sin pasar
+ * por la entrega y la devolución (BE-08.1 y BE-09.2).
  */
 const prisma = createTestPrismaClient();
 
