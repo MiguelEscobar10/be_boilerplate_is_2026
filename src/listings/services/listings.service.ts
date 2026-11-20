@@ -17,6 +17,13 @@ import {
   type CreateListingDto,
   type ListListingsQueryDto,
 } from '@Listings/dto';
+// Ruta directa y no `@Availability/services`: ese índice importa a este
+// servicio y formaría un ciclo.
+import {
+  DAY_MS,
+  startOfLocalDay,
+  toLocalIso,
+} from '../../availability/services/local-time.js';
 import type { Listing, ListingImage } from '@PrismaClient';
 
 export const MAX_IMAGES = 10;
@@ -71,10 +78,33 @@ export class ListingsService {
     }
   }
 
-  /** Catálogo público (H02): solo activas, más reciente primero. */
+  /**
+   * Catálogo público (H02) con filtros (H11): solo activas, más reciente
+   * primero. Los filtros se combinan: se devuelven las que cumplen todos.
+   *
+   * @throws {BadRequestException} si precioMin supera a precioMax, falta una
+   *   de las dos fechas, una fecha no existe, `fechaFin` es anterior a
+   *   `fechaInicio` o `fechaInicio` es un día pasado.
+   */
   async search(query: ListListingsQueryDto): Promise<ListingPageDto> {
+    const { precioMin, precioMax } = query;
+    if (
+      precioMin !== undefined &&
+      precioMax !== undefined &&
+      precioMin > precioMax
+    ) {
+      throw new BadRequestException(
+        'precioMin no puede ser mayor que precioMax.',
+      );
+    }
+
     const { items, total } = await this.listingRepository.search({
       text: query.buscar || undefined,
+      type: query.tipo,
+      location: query.ubicacion || undefined,
+      minRate: precioMin,
+      maxRate: precioMax,
+      available: this.availableRange(query.fechaInicio, query.fechaFin),
       page: query.page,
       limit: query.limit,
     });
@@ -83,6 +113,42 @@ export class ListingsService {
       page: query.page,
       total,
     };
+  }
+
+  /** Convierte `fechaInicio` y `fechaFin` (días de El Salvador, incluidos) en [from, to). */
+  private availableRange(
+    fechaInicio?: string,
+    fechaFin?: string,
+  ): { from: Date; to: Date } | undefined {
+    if (!fechaInicio && !fechaFin) return undefined;
+    if (!fechaInicio || !fechaFin) {
+      throw new BadRequestException(
+        'Para filtrar por fechas disponibles enviá fechaInicio y fechaFin.',
+      );
+    }
+    const from = startOfLocalDay(fechaInicio);
+    if (!from) {
+      throw new BadRequestException(
+        `fechaInicio (${fechaInicio}) no es una fecha que exista.`,
+      );
+    }
+    const lastDay = startOfLocalDay(fechaFin);
+    if (!lastDay) {
+      throw new BadRequestException(
+        `fechaFin (${fechaFin}) no es una fecha que exista.`,
+      );
+    }
+    if (lastDay < from) {
+      throw new BadRequestException(
+        'fechaFin no puede ser anterior a fechaInicio.',
+      );
+    }
+    // "Pasado" se mide por día de El Salvador: hoy todavía es válido.
+    if (fechaInicio < toLocalIso(new Date()).slice(0, 10)) {
+      throw new BadRequestException('fechaInicio no puede estar en el pasado.');
+    }
+    // `fechaFin` va incluido: el rango termina cuando empieza el día siguiente.
+    return { from, to: new Date(lastDay.getTime() + DAY_MS) };
   }
 
   async findById(id: string): Promise<ListingWithImages> {

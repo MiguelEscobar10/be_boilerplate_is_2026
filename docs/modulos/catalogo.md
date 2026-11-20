@@ -249,8 +249,8 @@ planificador puede usar los índices.
   `null` si la publicación no tiene fotos.
 - **La consulta va en SQL (`$queryRaw`).** Prisma no puede llamar a
   `search_text` desde un `where`. Los valores van como parámetros.
-- **Los filtros de BE-11.1** (tipo, ubicación, precio y fechas) se agregan a
-  `ListListingsQueryDto` y al `WHERE` de `ListingRepository.search`.
+- **Los filtros de BE-11.1** (tipo, ubicación, precio y fechas) van en el
+  mismo endpoint; ver la sección BE-11.1.
 
 ### Pruebas
 
@@ -288,3 +288,56 @@ No agrega tablas ni columnas.
 En [`test/listings.search.constraints.e2e-spec.ts`](../../test/listings.search.constraints.e2e-spec.ts):
 que existen los dos índices y que el planificador puede usarlos para filtrar
 por tipo con tarifa y por ubicación.
+
+## BE-11.1. Filtros del listado público (MP4-45)
+
+Mismo endpoint de BE-02.1, `GET /api/v1/publicaciones`, con filtros
+opcionales. Se combinan entre sí y con `buscar`: una publicación debe
+cumplirlos todos. La respuesta, el orden y la paginación no cambian.
+
+| Parámetro | Regla |
+|---|---|
+| `tipo` | `EQUIPO` o `ESPACIO`. |
+| `ubicacion` | La ubicación contiene el texto, sin distinguir mayúsculas ni acentos. Hasta 200 caracteres. |
+| `precioMin` | Tarifa mayor o igual. Número de 0 en adelante, con hasta dos decimales. |
+| `precioMax` | Tarifa menor o igual. No puede ser menor que `precioMin`. |
+| `fechaInicio`, `fechaFin` | Días `AAAA-MM-DD` en hora de El Salvador, los dos incluidos. Van juntos y `fechaInicio` no puede ser un día pasado. Devuelve solo las publicaciones libres en todo el rango. |
+
+Ejemplo:
+`GET /api/v1/publicaciones?tipo=ESPACIO&ubicacion=san salvador&precioMax=60&fechaInicio=2026-12-01&fechaFin=2026-12-03`
+
+### Reglas
+
+- **Disponible** significa que en el rango no hay reservas `CONFIRMADA` o
+  `EN_CURSO` ni bloqueos del arrendador. Las solicitudes `PENDIENTE` no
+  apartan fechas. Es la misma regla del calendario (H13), porque usa la misma
+  función `listing_busy_periods`.
+- Los períodos son semiabiertos: una reserva que termina justo cuando empieza
+  el rango no lo ocupa.
+- El precio compara la tarifa tal como está publicada, sin convertir entre
+  unidades (hora, día, noche, semana).
+- Con filtros que no dejan resultados responde `200` con `items: []`.
+- **400** si `tipo` no es del enum, un precio es negativo, no es número o
+  tiene más de dos decimales, `precioMin` supera a `precioMax`, llega solo una
+  de las dos fechas, una fecha no existe o tiene otro formato, `fechaFin` es
+  anterior a `fechaInicio` o `fechaInicio` ya pasó.
+
+### Decisiones
+
+- **Mismo formato y zona horaria que el calendario**
+  (`GET /publicaciones/{id}/disponibilidad`): días `AAAA-MM-DD` de El
+  Salvador. Los nombres son los de la ficha, `fechaInicio` y `fechaFin`.
+- **"En el pasado" se mide por día de El Salvador.** Hoy es válido como
+  `fechaInicio`; ayer no.
+- **Sin tope de días en el rango**, a diferencia del calendario: aquí no se
+  devuelven los períodos, solo se pregunta si hay alguno.
+- La conversión de fechas reutiliza `startOfLocalDay` del módulo de
+  disponibilidad, importado por ruta directa para no crear un ciclo entre los
+  dos módulos.
+
+### Pruebas
+
+[`test/listings.filters.e2e-spec.ts`](../../test/listings.filters.e2e-spec.ts)
+(29 pruebas): cada filtro por separado, combinados, con paginación, inactivas,
+fechas disponibles con reservas en cada estado y bloqueos, los extremos del
+rango y los 400.
