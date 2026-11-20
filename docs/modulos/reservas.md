@@ -594,7 +594,8 @@ antigua (H04, criterio 1).
       "depositoMonto": "20.00",
       "creadaAt": "2026-11-01T10:00:00.000Z",
       "decididaAt": null,
-      "motivoRechazo": null
+      "motivoRechazo": null,
+      "arrendatarioCalificado": false
     }
   ],
   "total": 1,
@@ -608,6 +609,8 @@ antigua (H04, criterio 1).
 - `arrendatario.nombre` es el nombre del perfil. No se devuelve su correo ni su
   teléfono.
 - `total` cuenta todas las que cumplen el filtro, no solo las de la página.
+- `arrendatarioCalificado` dice si el arrendador ya calificó al arrendatario
+  de esa reserva (H18, lo agrega BE-18.1).
 - 400 si el `estado` no existe, la paginación es inválida o viene un parámetro
   que no es de esta query.
 

@@ -217,6 +217,7 @@ describe('aprobar o rechazar una reserva (BE-04.1)', () => {
           creadaAt: '2026-11-01T10:00:00.000Z',
           decididaAt: null,
           motivoRechazo: null,
+          arrendatarioCalificado: false,
         });
       });
 

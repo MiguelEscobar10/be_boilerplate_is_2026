@@ -63,6 +63,8 @@
       "@Income/*": ["./src/income/*/index.ts"],
       "@Reports": ["./src/reports/index.ts"],
       "@Reports/*": ["./src/reports/*/index.ts"],
+      "@TenantRatings": ["./src/tenant-ratings/index.ts"],
+      "@TenantRatings/*": ["./src/tenant-ratings/*/index.ts"],
       "@Health": ["./src/health/index.ts"],
       "@Health/*": ["./src/health/*/index.ts"],
       "@Prisma": ["./src/prisma/index.ts"],
