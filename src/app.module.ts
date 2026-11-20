@@ -14,6 +14,7 @@ import { PaymentsModule } from '@Payments';
 import { PrismaModule } from '@Prisma';
 import { ReportsModule } from '@Reports';
 import { ReservationDecisionsModule } from '@ReservationDecisions';
+import { ReservationsModule } from '@Reservations';
 import { ReturnsModule } from '@Returns';
 import { TenantRatingsModule } from '@TenantRatings';
 import { UsersModule } from '@Users';
@@ -40,6 +41,7 @@ import { validateEnv } from '@Config';
     VerificationModule,
     DeliveriesModule,
     ReturnsModule,
+    ReservationsModule,
     ReservationDecisionsModule,
     IncomeModule,
     ReportsModule,

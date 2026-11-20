@@ -865,3 +865,114 @@ sobre las mismas fechas.
 
 Quité el `FOR UPDATE` del repositorio y la prueba de concurrencia falla.
 
+
+## BE-03.1. Solicitud y consulta de reservas (MP4-49)
+
+El arrendatario pide un período, el servidor calcula el costo y guarda la
+solicitud `PENDIENTE` sin apartar fechas, y avisa al arrendador. Código en
+`src/reservations` (alias `@Reservations`), aparte de `reservation-decisions`
+para que las dos historias se trabajen y mergeen sin tocarse.
+
+### `POST /api/v1/reservas`
+
+Solo `ARRENDATARIO`. Body:
+
+```json
+{
+  "publicacionId": "7c1e0f3a-2b4d-4c6e-8f90-a1b2c3d4e5f6",
+  "inicio": "2026-11-12T09:00:00-06:00",
+  "fin": "2026-11-12T12:00:00-06:00"
+}
+```
+
+`publicacionId` es un UUID (la ficha ponía `17`, pero las publicaciones usan
+UUID). Las fechas llevan zona. No hay campo de monto: si el cliente manda uno
+la validación lo rechaza (400).
+
+`201`:
+
+```json
+{
+  "id": "…",
+  "estado": "PENDIENTE",
+  "publicacion": { "id": "…", "nombre": "Taladro percutor" },
+  "inicio": "2026-11-12T09:00:00-06:00",
+  "fin": "2026-11-12T12:00:00-06:00",
+  "costoAlquiler": "45.00",
+  "depositoMonto": "20.00",
+  "creadaAt": "…",
+  "decididaAt": null,
+  "motivoRechazo": null
+}
+```
+
+| Código | Cuándo |
+|---|---|
+| 400 | Campos inválidos o con campos de más, fecha sin zona o que no existe, `fin` igual o anterior al inicio, período tan largo que el costo no cabe. |
+| 400 `FECHA_PASADA` | El inicio ya pasó. |
+| 401 / 403 | Sin sesión / la cuenta no es de arrendatario. |
+| 404 | La publicación no existe o está desactivada. |
+| 409 `PERIODO_NO_DISPONIBLE` | El período se cruza con una reserva `CONFIRMADA` o `EN_CURSO` o con un bloqueo. |
+| 422 `VERIFICACION_REQUERIDA` | La publicación exige verificación y el arrendatario no tiene una `APROBADA` (H19, `VerificationRequirementService`). |
+
+El orden de las comprobaciones es: formato y fechas (400), publicación (404),
+verificación (422), disponibilidad (409).
+
+### `GET /api/v1/reservas/{id}`
+
+Con sesión. Lo ve quien la solicitó y el dueño de la publicación; para
+cualquier otra persona es un `404`, igual que una reserva que no existe (con el
+mismo mensaje). Devuelve el mismo objeto del `201` y, si la rechazaron,
+`decididaAt` y `motivoRechazo` (H04, criterio 8).
+
+### Costo
+
+`costoAlquiler = tarifa × unidades`, con dos decimales. Las unidades salen de
+la duración: `HORA` en horas; `DIA` y `NOCHE` en días de 24 horas; `SEMANA` en
+semanas de 7 días. Una fracción sube a la unidad siguiente y el mínimo es 1.
+Ejemplos: 3 h × 15.00 = 45.00; 2 h 10 min × 15.00 también 45.00; 2 días y 1 h a
+25.00 por día = 75.00. La cuenta usa `Decimal` (`15.10 × 3 = 45.30`).
+El depósito se copia de la publicación y no se suma. Los dos se guardan como
+fotografía del precio: si la tarifa cambia después, la reserva no cambia.
+
+### Aviso al arrendador
+
+Después de guardar, `AvisosService.notificar` con `moduloOrigen` `RESERVAS`,
+destinatario el dueño de la publicación, título «Nueva solicitud de reserva»,
+un mensaje con el bien y las fechas en hora de El Salvador y referencia
+`reserva` + su id. Si el aviso falla, la solicitud queda guardada y el error
+solo se registra.
+
+### Decisiones
+
+- **Importes como texto** (`"45.00"`), como en el panel de solicitudes, para no
+  perder ceros ni redondear en el cliente. La ficha los muestra como número.
+- **Un solo 409 para reserva y bloqueo**, sin decir cuál fue ni el motivo del
+  bloqueo: el arrendatario no tiene por qué verlo. El código es
+  `PERIODO_NO_DISPONIBLE`; `CONFLICTO_DISPONIBILIDAD` queda para el arrendador
+  al aprobar.
+- **Sin bloqueo de filas al crear.** Una `PENDIENTE` no aparta fechas, así que
+  dos solicitudes iguales conviven. Si entre la comprobación y el `INSERT` se
+  confirma otra reserva, la solicitud queda `PENDIENTE` y el choque lo frena
+  la aprobación (BE-04.1, con `FOR UPDATE`).
+- **El inicio no puede ser anterior a «ahora»**; empezar justo ahora vale.
+- **Borde con borde no choca**: una reserva que termina a las 12:00 no estorba
+  a otra que empieza a las 12:00.
+- **404 y no 403 en el detalle ajeno**, para no confirmar que la reserva existe.
+
+### Pruebas
+
+- **Unitarias** (`npm test`): `reservation-cost.spec.ts` (unidades, fracciones,
+  mínimo, coma flotante), `reservation-dates.spec.ts`,
+  `reservation-notice.spec.ts` y `reservations.service.spec.ts` (todos los
+  errores, que no guarda ni avisa cuando falla, y el aviso que falla).
+- **E2e** ([`test/reservations.e2e-spec.ts`](../../test/reservations.e2e-spec.ts),
+  `npm run test:e2e`): la app completa contra la base `_test`. Crear con costo
+  y depósito, el costo en las cuatro unidades con fracciones, solicitudes que
+  conviven, el aviso en la base, todos los 400/401/403/404/409/422, el borde, y
+  qué estados ocupan fechas; y el detalle propio, del dueño, ajeno, rechazado y
+  con la tarifa cambiada.
+
+Probé quitando el choque de fechas, la validación del pasado, el redondeo
+hacia arriba, que `PENDIENTE` ocupe, la verificación y la autorización del
+detalle: cada una hace fallar al menos una prueba.
