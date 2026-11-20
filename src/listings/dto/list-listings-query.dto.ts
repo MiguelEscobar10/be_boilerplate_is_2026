@@ -100,21 +100,21 @@ export class ListListingsQueryDto {
 
   @ApiPropertyOptional({
     description:
-      'Primer día en que se necesita el bien (inclusive), `AAAA-MM-DD`, en hora de El Salvador. Va junto con `hasta`.',
+      'Primer día en que se necesita el bien (inclusive), `AAAA-MM-DD`, en hora de El Salvador. No puede ser un día pasado. Va junto con `fechaFin`.',
     example: '2026-12-01',
   })
   @IsOptional()
-  @Matches(FECHA, { message: 'desde debe tener el formato AAAA-MM-DD.' })
-  desde?: string;
+  @Matches(FECHA, { message: 'fechaInicio debe tener el formato AAAA-MM-DD.' })
+  fechaInicio?: string;
 
   @ApiPropertyOptional({
     description:
-      'Último día en que se necesita el bien (inclusive), `AAAA-MM-DD`. Va junto con `desde`.',
+      'Último día en que se necesita el bien (inclusive), `AAAA-MM-DD`. Va junto con `fechaInicio`.',
     example: '2026-12-03',
   })
   @IsOptional()
-  @Matches(FECHA, { message: 'hasta debe tener el formato AAAA-MM-DD.' })
-  hasta?: string;
+  @Matches(FECHA, { message: 'fechaFin debe tener el formato AAAA-MM-DD.' })
+  fechaFin?: string;
 
   @ApiPropertyOptional({
     description: 'Página, desde 1.',

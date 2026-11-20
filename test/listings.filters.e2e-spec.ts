@@ -238,7 +238,7 @@ describe('filtros del catálogo (BE-11.1)', () => {
   });
 
   describe('fechas disponibles', () => {
-    const rango = { desde: '2027-03-10', hasta: '2027-03-12' };
+    const rango = { fechaInicio: '2027-03-10', fechaFin: '2027-03-12' };
     let ids: Record<string, string>;
 
     beforeAll(async () => {
@@ -294,20 +294,29 @@ describe('filtros del catálogo (BE-11.1)', () => {
       expect(names(await list(rango).expect(200))).toContain('Bodega');
       expect(
         names(
-          await list({ desde: '2027-03-09', hasta: '2027-03-09' }).expect(200),
+          await list({
+            fechaInicio: '2027-03-09',
+            fechaFin: '2027-03-09',
+          }).expect(200),
         ),
       ).not.toContain('Bodega');
     });
 
-    it('hasta va incluido: un bloqueo en el último día ocupa', async () => {
+    it('fechaFin va incluido: un bloqueo en el último día ocupa', async () => {
       expect(
         names(
-          await list({ desde: '2027-03-12', hasta: '2027-03-12' }).expect(200),
+          await list({
+            fechaInicio: '2027-03-12',
+            fechaFin: '2027-03-12',
+          }).expect(200),
         ),
       ).not.toContain('Salón');
       expect(
         names(
-          await list({ desde: '2027-03-10', hasta: '2027-03-11' }).expect(200),
+          await list({
+            fechaInicio: '2027-03-10',
+            fechaFin: '2027-03-11',
+          }).expect(200),
         ),
       ).toContain('Salón');
     });
@@ -315,7 +324,10 @@ describe('filtros del catálogo (BE-11.1)', () => {
     it('fuera del rango ocupado todas están disponibles', async () => {
       expect(
         names(
-          await list({ desde: '2027-04-01', hasta: '2027-04-05' }).expect(200),
+          await list({
+            fechaInicio: '2027-04-01',
+            fechaFin: '2027-04-05',
+          }).expect(200),
         ),
       ).toHaveLength(4);
     });
@@ -327,6 +339,12 @@ describe('filtros del catálogo (BE-11.1)', () => {
     });
   });
 
+  it('acepta hoy como fechaInicio', async () => {
+    // Hoy en El Salvador (UTC-6).
+    const hoy = new Date(Date.now() - 6 * 3_600_000).toISOString().slice(0, 10);
+    await list({ fechaInicio: hoy, fechaFin: hoy }).expect(200);
+  });
+
   it.each([
     ['un tipo fuera del enum', { tipo: 'VEHICULO' }],
     ['precioMin negativo', { precioMin: -1 }],
@@ -334,14 +352,24 @@ describe('filtros del catálogo (BE-11.1)', () => {
     ['precioMin con tres decimales', { precioMin: 1.234 }],
     ['precioMin mayor que precioMax', { precioMin: 50, precioMax: 10 }],
     ['ubicacion de 201 caracteres', { ubicacion: 'a'.repeat(201) }],
-    ['desde sin hasta', { desde: '2027-03-10' }],
-    ['hasta sin desde', { hasta: '2027-03-10' }],
+    ['fechaInicio sin fechaFin', { fechaInicio: '2027-03-10' }],
+    ['fechaFin sin fechaInicio', { fechaFin: '2027-03-10' }],
     [
       'una fecha con otro formato',
-      { desde: '10/03/2027', hasta: '2027-03-12' },
+      { fechaInicio: '10/03/2027', fechaFin: '2027-03-12' },
     ],
-    ['una fecha que no existe', { desde: '2027-02-30', hasta: '2027-03-12' }],
-    ['hasta anterior a desde', { desde: '2027-03-12', hasta: '2027-03-10' }],
+    [
+      'una fecha que no existe',
+      { fechaInicio: '2027-02-30', fechaFin: '2027-03-12' },
+    ],
+    [
+      'fechaInicio en el pasado',
+      { fechaInicio: '2020-01-01', fechaFin: '2027-03-12' },
+    ],
+    [
+      'fechaFin anterior a fechaInicio',
+      { fechaInicio: '2027-03-12', fechaFin: '2027-03-10' },
+    ],
   ])('responde 400 con %s', async (_caso, query) => {
     await list(query as Record<string, string | number>).expect(400);
   });

@@ -101,7 +101,7 @@ export class ListingsController {
    * Catálogo público (H02): publicaciones activas cuyo nombre o descripción
    * contienen `buscar`, sin distinguir mayúsculas ni acentos. De la más
    * reciente a la más antigua, 12 por página. Acepta los filtros de H11:
-   * `tipo`, `ubicacion`, `precioMin`, `precioMax` y `desde` con `hasta`.
+   * `tipo`, `ubicacion`, `precioMin`, `precioMax` y `fechaInicio` con `fechaFin`.
    */
   @Public()
   @Get()

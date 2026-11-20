@@ -175,18 +175,15 @@ describe('listings: índices de búsqueda (DB-02.1)', () => {
     const def = (name: string) =>
       rows.find((r) => r.indexname === name)?.indexdef ?? '';
 
-    expect(def('listings_is_active_type_created_at_id_idx')).toMatch(
-      /\(is_active, type, created_at DESC, id DESC\)/,
-    );
-    expect(def('listings_is_active_rate_amount_idx')).toMatch(
-      /\(is_active, rate_amount\)/,
+    expect(def('listings_is_active_type_rate_amount_idx')).toMatch(
+      /\(is_active, type, rate_amount\)/,
     );
     expect(def('listings_location_search_idx')).toMatch(
       /USING gin \(search_text\(\(location\)::text\) gin_trgm_ops\)/,
     );
   });
 
-  it('los filtros de tipo, tarifa y ubicación pueden usar sus índices (DB-11.1)', async () => {
+  it('los filtros de tipo con tarifa y de ubicación pueden usar sus índices (DB-11.1)', async () => {
     const plan = async (sql: string): Promise<string> => {
       const [, , rows] = await prisma.$transaction([
         prisma.$executeRawUnsafe('SET LOCAL enable_seqscan = off'),
@@ -199,14 +196,9 @@ describe('listings: índices de búsqueda (DB-02.1)', () => {
 
     expect(
       await plan(
-        `SELECT id FROM listings WHERE is_active AND type = 'ESPACIO' ORDER BY created_at DESC, id DESC LIMIT 12`,
+        `SELECT id FROM listings WHERE is_active AND type = 'ESPACIO' AND rate_amount BETWEEN 10 AND 20`,
       ),
-    ).toContain('listings_is_active_type_created_at_id_idx');
-    expect(
-      await plan(
-        'SELECT id FROM listings WHERE is_active AND rate_amount BETWEEN 10 AND 20',
-      ),
-    ).toContain('listings_is_active_rate_amount_idx');
+    ).toContain('listings_is_active_type_rate_amount_idx');
     expect(
       await plan(
         `SELECT id FROM listings WHERE search_text(location) LIKE '%cuscatlan%'`,

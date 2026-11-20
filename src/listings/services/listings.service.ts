@@ -22,6 +22,7 @@ import {
 import {
   DAY_MS,
   startOfLocalDay,
+  toLocalIso,
 } from '../../availability/services/local-time.js';
 import type { Listing, ListingImage } from '@PrismaClient';
 
@@ -82,7 +83,8 @@ export class ListingsService {
    * primero. Los filtros se combinan: se devuelven las que cumplen todos.
    *
    * @throws {BadRequestException} si precioMin supera a precioMax, falta una
-   *   de las dos fechas, una fecha no existe o `hasta` es anterior a `desde`.
+   *   de las dos fechas, una fecha no existe, `fechaFin` es anterior a
+   *   `fechaInicio` o `fechaInicio` es un día pasado.
    */
   async search(query: ListListingsQueryDto): Promise<ListingPageDto> {
     const { precioMin, precioMax } = query;
@@ -102,7 +104,7 @@ export class ListingsService {
       location: query.ubicacion || undefined,
       minRate: precioMin,
       maxRate: precioMax,
-      available: this.availableRange(query.desde, query.hasta),
+      available: this.availableRange(query.fechaInicio, query.fechaFin),
       page: query.page,
       limit: query.limit,
     });
@@ -113,31 +115,39 @@ export class ListingsService {
     };
   }
 
-  /** Convierte `desde` y `hasta` (días de El Salvador, incluidos) en [from, to). */
+  /** Convierte `fechaInicio` y `fechaFin` (días de El Salvador, incluidos) en [from, to). */
   private availableRange(
-    desde?: string,
-    hasta?: string,
+    fechaInicio?: string,
+    fechaFin?: string,
   ): { from: Date; to: Date } | undefined {
-    if (!desde && !hasta) return undefined;
-    if (!desde || !hasta) {
+    if (!fechaInicio && !fechaFin) return undefined;
+    if (!fechaInicio || !fechaFin) {
       throw new BadRequestException(
-        'Para filtrar por fechas disponibles enviá desde y hasta.',
+        'Para filtrar por fechas disponibles enviá fechaInicio y fechaFin.',
       );
     }
-    const from = startOfLocalDay(desde);
+    const from = startOfLocalDay(fechaInicio);
     if (!from) {
-      throw new BadRequestException(`La fecha desde (${desde}) no existe.`);
+      throw new BadRequestException(
+        `fechaInicio (${fechaInicio}) no es una fecha que exista.`,
+      );
     }
-    const lastDay = startOfLocalDay(hasta);
+    const lastDay = startOfLocalDay(fechaFin);
     if (!lastDay) {
-      throw new BadRequestException(`La fecha hasta (${hasta}) no existe.`);
+      throw new BadRequestException(
+        `fechaFin (${fechaFin}) no es una fecha que exista.`,
+      );
     }
     if (lastDay < from) {
       throw new BadRequestException(
-        'La fecha hasta no puede ser anterior a desde.',
+        'fechaFin no puede ser anterior a fechaInicio.',
       );
     }
-    // `hasta` va incluido: el rango termina cuando empieza el día siguiente.
+    // "Pasado" se mide por día de El Salvador: hoy todavía es válido.
+    if (fechaInicio < toLocalIso(new Date()).slice(0, 10)) {
+      throw new BadRequestException('fechaInicio no puede estar en el pasado.');
+    }
+    // `fechaFin` va incluido: el rango termina cuando empieza el día siguiente.
     return { from, to: new Date(lastDay.getTime() + DAY_MS) };
   }
 

@@ -1,12 +1,9 @@
 -- DB-11.1 (MP4-44): índices para los filtros del catálogo (H11).
 -- No agrega tablas ni columnas.
 
--- Filtro por tipo (EQUIPO o ESPACIO) conservando el orden por defecto:
--- activas, más reciente primero.
-CREATE INDEX "listings_is_active_type_created_at_id_idx" ON "listings"("is_active", "type", "created_at" DESC, "id" DESC);
-
--- Filtro por rango de tarifa (precio mínimo y máximo).
-CREATE INDEX "listings_is_active_rate_amount_idx" ON "listings"("is_active", "rate_amount");
+-- Filtros por tipo y por rango de tarifa sobre las publicaciones activas.
+-- Con el tipo elegido, el rango de tarifa se resuelve dentro del índice.
+CREATE INDEX "listings_is_active_type_rate_amount_idx" ON "listings"("is_active", "type", "rate_amount");
 
 -- Filtro por ubicación: contiene el texto, sin distinguir mayúsculas ni
 -- acentos. Usa search_text y pg_trgm, creados en DB-02.1.
