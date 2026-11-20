@@ -4,7 +4,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@PrismaClient';
 
 /**
- * Índices de búsqueda del catálogo (DB-02.1).
+ * Índices de búsqueda (DB-02.1) y de filtros (DB-11.1) del catálogo.
  *
  * Misma regla que las demás pruebas de base: corre solo contra una base
  * local cuyo nombre termina en `_test` y borra solo lo que creó.
@@ -146,8 +146,10 @@ describe('listings: índices de búsqueda (DB-02.1)', () => {
     // Con pocas filas PostgreSQL prefiere leer la tabla completa; se apaga
     // esa opción solo dentro de la transacción para ver si el índice sirve.
     const plan = async (sql: string): Promise<string> => {
-      const [, rows] = await prisma.$transaction([
+      const [, , rows] = await prisma.$transaction([
         prisma.$executeRawUnsafe('SET LOCAL enable_seqscan = off'),
+        // Con tan pocas filas también prefiere ordenar a mano.
+        prisma.$executeRawUnsafe('SET LOCAL enable_sort = off'),
         prisma.$queryRawUnsafe<{ 'QUERY PLAN': string }[]>(`EXPLAIN ${sql}`),
       ]);
       return rows.map((r) => r['QUERY PLAN']).join('\n');
@@ -164,5 +166,43 @@ describe('listings: índices de búsqueda (DB-02.1)', () => {
         'SELECT id FROM listings WHERE is_active ORDER BY created_at DESC, id DESC LIMIT 12',
       ),
     ).toContain('listings_is_active_created_at_id_idx');
+  });
+
+  it('tiene los índices de los filtros (DB-11.1)', async () => {
+    const rows = await prisma.$queryRaw<
+      { indexname: string; indexdef: string }[]
+    >`SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'listings'`;
+    const def = (name: string) =>
+      rows.find((r) => r.indexname === name)?.indexdef ?? '';
+
+    expect(def('listings_is_active_type_rate_amount_idx')).toMatch(
+      /\(is_active, type, rate_amount\)/,
+    );
+    expect(def('listings_location_search_idx')).toMatch(
+      /USING gin \(search_text\(\(location\)::text\) gin_trgm_ops\)/,
+    );
+  });
+
+  it('los filtros de tipo con tarifa y de ubicación pueden usar sus índices (DB-11.1)', async () => {
+    const plan = async (sql: string): Promise<string> => {
+      const [, , rows] = await prisma.$transaction([
+        prisma.$executeRawUnsafe('SET LOCAL enable_seqscan = off'),
+        // Con tan pocas filas también prefiere ordenar a mano.
+        prisma.$executeRawUnsafe('SET LOCAL enable_sort = off'),
+        prisma.$queryRawUnsafe<{ 'QUERY PLAN': string }[]>(`EXPLAIN ${sql}`),
+      ]);
+      return rows.map((r) => r['QUERY PLAN']).join('\n');
+    };
+
+    expect(
+      await plan(
+        `SELECT id FROM listings WHERE is_active AND type = 'ESPACIO' AND rate_amount BETWEEN 10 AND 20`,
+      ),
+    ).toContain('listings_is_active_type_rate_amount_idx');
+    expect(
+      await plan(
+        `SELECT id FROM listings WHERE search_text(location) LIKE '%cuscatlan%'`,
+      ),
+    ).toContain('listings_location_search_idx');
   });
 });
