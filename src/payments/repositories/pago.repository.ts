@@ -133,4 +133,27 @@ export class PagoRepository {
       where: { id: pagoId },
     });
   }
+
+  /**
+   * Último intento de una reserva del arrendatario, por `created_at DESC, id
+   * DESC` (índice de DB-05.1; ver DB-06.1). Devuelve `null` si la reserva no
+   * existe o es de otro usuario, y `{ pago: null }` si es suya pero sin pagos.
+   * Se lee siempre de la base, sin caché.
+   */
+  async buscarUltimoPagoDeArrendatario(
+    reservaId: string,
+    arrendatarioId: string,
+  ): Promise<{ pago: SimulatedPayment | null } | null> {
+    const reserva = await this.prisma.reservation.findFirst({
+      where: { id: reservaId, tenantId: arrendatarioId },
+      select: {
+        simulatedPayments: {
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: 1,
+        },
+      },
+    });
+    if (!reserva) return null;
+    return { pago: reserva.simulatedPayments[0] ?? null };
+  }
 }

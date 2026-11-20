@@ -52,6 +52,7 @@ módulo en [`modulos/`](modulos/).
 | Notificaciones (M8) | GET | `/api/v1/notificaciones` | con sesión | Lista la bandeja del usuario, más recientes primero |
 | Notificaciones (M8) | PATCH | `/api/v1/notificaciones/{id}/leida` | con sesión | Marca como leída una notificación propia |
 | Pagos (M4) | POST | `/api/v1/reservas/{id}/pagos/simulados` | ARRENDATARIO | Paga una reserva confirmada con una tarjeta de prueba |
+| Pagos (M4) | GET | `/api/v1/reservas/{id}/pagos/ultimo` | ARRENDATARIO | Consulta el último pago de una reserva propia |
 | Reportes (M9) | GET | `/api/v1/reportes/ocupacion` | ARRENDADOR | Tasa de ocupación de los bienes del arrendador en un período |
 | Reservas y disponibilidad (M3) | GET | `/api/v1/arrendador/solicitudes` | ARRENDADOR | Solicitudes de reserva de las publicaciones del arrendador |
 | Reservas y disponibilidad (M3) | PATCH | `/api/v1/reservas/{id}/decision` | ARRENDADOR | Aprueba o rechaza una solicitud de reserva PENDIENTE |

@@ -1,9 +1,10 @@
 import { HttpException, Injectable, Logger } from '@nestjs/common';
 import { AvisosService, ModuloOrigen, type Aviso } from '@Notifications';
 import type { SimulatedPayment } from '@PrismaClient';
-import { PagoSimuladoResponseDto } from '@Payments/dto';
+import { PagoSimuladoResponseDto, UltimoPagoResponseDto } from '@Payments/dto';
 import {
   conflictoPago,
+  pagoNoRegistrado,
   reservaNoEncontrada,
   tarjetaNoValida,
 } from '@Payments/errors';
@@ -130,6 +131,24 @@ export class PagosService {
 
     await this.avisar(cerrado, reserva);
     return PagoSimuladoResponseDto.fromEntity(cerrado);
+  }
+
+  /**
+   * Estado del último pago de una reserva propia (H06). 404 igual si la
+   * reserva no existe o es de otro; 404 con `PAGO_NO_REGISTRADO` solo si es
+   * suya y todavía no tiene intentos.
+   */
+  async ultimoPago(
+    reservaId: string,
+    arrendatarioId: string,
+  ): Promise<UltimoPagoResponseDto> {
+    const encontrado = await this.pagos.buscarUltimoPagoDeArrendatario(
+      reservaId,
+      arrendatarioId,
+    );
+    if (!encontrado) throw reservaNoEncontrada();
+    if (!encontrado.pago) throw pagoNoRegistrado();
+    return UltimoPagoResponseDto.fromEntity(encontrado.pago);
   }
 
   /**

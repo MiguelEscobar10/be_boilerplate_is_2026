@@ -69,6 +69,7 @@ export class ErrorPagoDto {
       'PAGO_YA_APROBADO',
       'PAGO_EN_PROCESO',
       'INTENTOS_AGOTADOS',
+      'PAGO_NO_REGISTRADO',
     ],
     example: 'INTENTOS_AGOTADOS',
   })
