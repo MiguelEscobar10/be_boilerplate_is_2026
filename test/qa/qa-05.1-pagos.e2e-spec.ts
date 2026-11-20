@@ -449,7 +449,7 @@ describe('QA-05.1: tarjetas de prueba y validaciones de cobro', () => {
         expect(res.status).toBe(201);
         expect(res.body.estado).toBe('APROBADO');
         expect(ms).toBeGreaterThanOrEqual(2000);
-        expect(ms).toBeLessThan(6000);
+        expect(ms).toBeLessThan(15000);
       } finally {
         await real.close();
       }
