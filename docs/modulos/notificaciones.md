@@ -519,3 +519,96 @@ class-validator.
 La base `_test` necesita todas las migraciones (ver *Prueba de
 restricciones*). Después de traer migraciones nuevas de `main`, hay que
 volver a correr `prisma migrate deploy` sobre ella.
+
+## BE-10.2. Catálogo de avisos (MP4-108)
+
+Qué avisos generan las reservas, los pagos y los mensajes (historia H10), y
+la comprobación de que todos se registran con `AvisosService.notificar()` de
+BE-20.1. No hay envío por correo ni SMS: el aviso queda en la bandeja del
+destinatario y ahí termina.
+
+**Este módulo no tiene lógica propia de envío.** Cada módulo emisor arma su
+aviso y llama a `notificar()` después de guardar su operación. BE-10.2 no
+cambió ningún emisor: los cuatro ya cumplían la ficha. Esta sección es el
+catálogo vigente, sacado del código de `main`, y lo verifica
+[`test/notifications.catalogo.e2e-spec.ts`](../../test/notifications.catalogo.e2e-spec.ts).
+
+### Catálogo
+
+| Evento | Emisor (fuente del texto) | Destinatario | Título | Mensaje | `moduloOrigen` | Referencia |
+|---|---|---|---|---|---|---|
+| Solicitud nueva (H03) | BE-03.1, [`reservation-notice.ts:36`](../../src/reservations/services/reservation-notice.ts) | Arrendador | Nueva solicitud de reserva | `Solicitud de «{bien}» del {inicio} al {fin}.` | `RESERVAS` | `reserva` / id de la reserva |
+| Reserva CONFIRMADA (H04) | BE-04.1, [`decision-notice.ts:42`](../../src/reservation-decisions/services/decision-notice.ts) | Arrendatario | Reserva CONFIRMADA | `Tu reserva de «{bien}» del {inicio} al {fin} fue confirmada.` | `RESERVAS` | `reserva` / id de la reserva |
+| Reserva RECHAZADA (H04) | BE-04.1, ídem | Arrendatario | Reserva RECHAZADA | `Tu reserva de «{bien}» del {inicio} al {fin} fue rechazada.` + ` Motivo: {motivo}` si lo hay (recortado con «…» para no pasar de 500) | `RESERVAS` | `reserva` / id de la reserva |
+| Pago APROBADO (H05) | BE-05.1, [`pagos.service.ts:139`](../../src/payments/services/pagos.service.ts) | Arrendatario | Pago aprobado | `Tu pago de ${total} por «{bien}» fue aprobado.` | `PAGOS_GARANTIA` | `pago` / id del intento |
+| Pago APROBADO (H05) | BE-05.1, ídem | Arrendador | Pago confirmado | `Se confirmó el pago de ${total} de la reserva de «{bien}».` | `PAGOS_GARANTIA` | `pago` / id del intento |
+| Pago RECHAZADO (H05) | BE-05.1, ídem | Arrendatario | Pago rechazado | `Tu pago de ${total} por «{bien}» fue rechazado. La reserva sigue confirmada y puedes intentar el pago de nuevo.` | `PAGOS_GARANTIA` | `pago` / id del intento |
+| Mensaje nuevo (H15, H16) | BE-15.1, [`messaging.service.ts:138`](../../src/messaging/services/messaging.service.ts) | El otro participante (nunca el autor) | Mensaje nuevo | `Tenés un mensaje nuevo sobre "{bien}".` | `MENSAJERIA` | `mensaje` / id del mensaje |
+
+- `{inicio}` y `{fin}`: `dd/mm/aaaa hh:mm` en la hora de El Salvador.
+- `{total}`: costo del alquiler más el depósito, con dos decimales.
+- Fuera de este catálogo, BE-09.2 emite «Depósito de garantía resuelto» al
+  arrendatario ([`deposit-resolutions.service.ts:143`](../../src/returns/services/deposit-resolutions.service.ts)),
+  con referencia `reserva` y los montos liberado y retenido. El contrato se
+  alineó con ese aviso en esta misma task (ver
+  [`docs/contratos/servicio-avisos.md`](../contratos/servicio-avisos.md)).
+
+### Duplicados
+
+La base guarda un solo aviso por destinatario, módulo, referencia y título
+(`notifications_dedupe_key`, ver BE-20.1). Volver a llamar a `notificar()` con
+el mismo aviso devuelve el id del que ya existe. Además, cada emisor corta
+antes una operación repetida que no cambia nada:
+
+| Evento | Si se repite la operación |
+|---|---|
+| Solicitud nueva | Cada `POST /reservas` crea otra reserva, con otro id: es otro evento y tiene su propio aviso. El mismo aviso no se registra dos veces. |
+| Reserva CONFIRMADA / RECHAZADA | Repetir el `PATCH` da 409 `SOLICITUD_YA_DECIDIDA` antes de avisar. No hay aviso nuevo. |
+| Pago APROBADO | Repetir el pago da 409 `PAGO_YA_APROBADO` (o `PAGO_EN_PROCESO` si hay otro en curso). No hay intento ni aviso nuevo. |
+| Pago RECHAZADO | Cada intento (hasta 3) es un evento. Por eso la referencia es el intento y no la reserva: el segundo «Pago rechazado» llega aunque el título sea el mismo. |
+| Mensaje nuevo | Cada mensaje es un evento y avisa una vez. Por eso la referencia es el mensaje y no la conversación. |
+
+### Datos sensibles
+
+Ningún aviso lleva números de tarjeta (ni los últimos 4 dígitos), CVV,
+números de documentos (DUI, NIT, pasaporte), contraseñas ni el texto de un
+mensaje del chat. Los avisos de pago sí llevan el **monto total**: lo pide
+H05 y el contrato lo permite. Es un dato de la operación que el arrendatario
+y el arrendador ya ven en su panel, no un detalle financiero sensible.
+
+### Limitación conocida
+
+Un intento de pago que queda en PENDIENTE porque el proceso se cayó se cierra
+como RECHAZADO en el siguiente intento (`cerrarComoRechazados`,
+`pagos.service.ts:85`), **sin aviso**. Lo mismo pasa si otro proceso cerró el
+intento mientras la pasarela respondía (`pagos.service.ts:122`). Son casos de
+falla del proceso, no del flujo normal, y el intento siguiente sí avisa. No se
+cambió en esta task.
+
+### Pruebas
+
+[`test/notifications.catalogo.e2e-spec.ts`](../../test/notifications.catalogo.e2e-spec.ts)
+(`npm run test:e2e`) monta la app completa contra la base `_test`, con la
+pasarela sin espera. Ejecuta cada operación por HTTP y comprueba el aviso en
+la base: destinatario, título, mensaje exacto, módulo de origen y referencia.
+Para cada caso también vuelve a llamar a `notificar()` con el mismo aviso y
+comprueba que devuelve el mismo id sin crear otro.
+
+- **Solicitud nueva:** el aviso llega al arrendador y no al arrendatario.
+- **CONFIRMADA y RECHAZADA con motivo:** el aviso llega al arrendatario.
+  Repetir la decisión da 409 sin aviso nuevo.
+- **Pago RECHAZADO dos veces:** dos avisos, uno por intento, solo para el
+  arrendatario.
+- **Pago APROBADO:** «Pago aprobado» al arrendatario y «Pago confirmado» al
+  arrendador. Repetir da 409 `PAGO_YA_APROBADO`, sin intento ni aviso nuevos.
+- **Rechazado y luego aprobado:** cada intento con el aviso de su resultado.
+- **Mensajes H15 (publicación) y H16 (reserva confirmada), en los dos
+  sentidos:** el aviso llega al otro participante, nunca al autor.
+- **Datos sensibles:** barre todos los avisos de los usuarios de la prueba,
+  pagos incluidos, y comprueba que no traen números de tarjeta (completos, con
+  separadores o los últimos 4), el CVV, patrones de DUI o NIT, las palabras
+  CVV, contraseña o password, el hash de la contraseña ni el texto del chat.
+
+Corre en paralelo con el resto de la suite: filtra por sus propios usuarios
+(email con sufijo único) y referencias, nunca por conteos globales, y en
+`afterAll` borra lo que creó de abajo hacia arriba.
