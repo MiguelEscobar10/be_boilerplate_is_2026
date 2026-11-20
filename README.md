@@ -1,4 +1,32 @@
-# SI Backend Boilerplate
+# Plataforma de renta de equipos y espacios: backend
+
+Proyecto 4 de Ingeniería de Software (UCA), equipo **MMitas Puebla**.
+Permite a un arrendador publicar equipos o espacios y a un arrendatario
+buscarlos, reservarlos, pagarlos (simulado), coordinar la entrega y calificar.
+
+- **Frontend:** [fe_boilerplate_is_2026](https://github.com/MiguelEscobar10/fe_boilerplate_is_2026)
+- **Documentación:** [`docs/`](docs/README.md): [arquitectura y decisiones](docs/arquitectura.md), [modelo de datos](docs/modelo-de-datos.md), [endpoints](docs/endpoints.md), [módulos](docs/modulos/) y [QA](docs/qa/)
+- **Cómo trabajamos:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
+
+## Integrantes
+
+Cada historia tiene un dueño que hace sus cuatro tareas: base de datos,
+backend, frontend y QA. La revisión de cada PR la hace otro integrante.
+
+| Integrante | GitHub | Historias | Rol |
+|---|---|---|---|
+| Lee Michael Fuentes Narváez | [LeeMichael24](https://github.com/LeeMichael24) | H00 Cuentas y roles, H01 Publicar, H15 Preguntar antes de reservar, H16 Coordinar la entrega | Base de datos, backend, frontend y QA de sus historias; documentación general (README y `docs/`) y decisión de estado del frontend |
+| Miguel Alberto Escobar Estrada | [MiguelEscobar10](https://github.com/MiguelEscobar10) | H05 Pago simulado, H10 Notificaciones, H20 Servicio de avisos, H21 Ingresos | Base de datos, backend, frontend y QA de sus historias; dueño de los repositorios y del servicio de avisos que usan todos los módulos |
+| Ricardo Pineda | [qwerty16p](https://github.com/qwerty16p) | H07 Verificación de identidad, H08 Entrega, H19 Exigir verificación, H22 Ocupación | Base de datos, backend, frontend y QA de sus historias |
+| Henry | [AlexisFlop](https://github.com/AlexisFlop) | H04 Aprobar o rechazar, H13 Disponibilidad, H14 Bloquear fechas, H18 Calificar al arrendatario | Base de datos, backend, frontend y QA de sus historias |
+| Elias Alejandro Milian Rivera | [EliasMilian](https://github.com/EliasMilian) | H02 Buscar, H09 Devolución y garantía, H11 Filtrar, H12 Detalle completo | Base de datos, backend, frontend y QA de sus historias |
+| Mario Alexander Molina Fuentes | [JustLex98](https://github.com/JustLex98) | H03 Solicitar una reserva, H06 Estado del pago, H17 Calificar el bien | Base de datos, backend, frontend y QA de sus historias |
+
+## Guía técnica
+
+Lo que sigue es la guía del boilerplate de la cátedra: cómo levantar el
+proyecto, variables de entorno, Docker, Prisma y estructura.
+
 
 API REST construida con **NestJS 12**, **Prisma 7** y **PostgreSQL 18**, con autenticación por usuario y contraseña lista para usar.
 

@@ -205,7 +205,7 @@ reserva y que escribir dependa de su estado.
 
 | Método | Ruta | Quién | Respuesta |
 |---|---|---|---|
-| `POST` | `/api/v1/reservas/{id}/conversacion` (sin cuerpo) | quien reservó o el dueño de la publicación | `201 { id }` si es nueva, `200 { id }` si ya existía |
+| `POST` | `/api/v1/reservas/{id}/conversacion` (sin cuerpo) | quien reservó o el dueño de la publicación | `201` si es nueva, `200` si ya existía, con `{ id, estadoReserva, puedeEscribir }` |
 | `POST` | `/api/v1/conversaciones/{id}/mensajes` | participante | `201 { id, createdAt }`; `409` si la reserva está cerrada |
 | `GET` | `/api/v1/conversaciones/{id}/mensajes` | participante | `200` con el historial, en cualquier estado |
 
@@ -217,6 +217,11 @@ reserva y que escribir dependa de su estado.
 | `CONFIRMADA` | `201` / `200` | `201` | `200` |
 | `EN_CURSO` | `201` / `200` | `201` | `200` |
 | `RECHAZADA`, `CANCELADA`, `COMPLETADA` | `200` si ya existía; si no, `409 CONVERSACION_CERRADA` | `409 CONVERSACION_CERRADA` | `200` |
+
+`estadoReserva` es el estado actual de la reserva y `puedeEscribir` es `true`
+solo en CONFIRMADA y EN_CURSO. Con eso la pantalla (FE-16.1) decide si muestra
+la caja de texto o solo el historial con "Conversación cerrada", sin pedir la
+reserva aparte (todavía no hay `GET /reservas/{id}`).
 
 Los 409 usan el formato de error de siempre más el campo `codigo`, igual que
 pagos (BE-05.1):

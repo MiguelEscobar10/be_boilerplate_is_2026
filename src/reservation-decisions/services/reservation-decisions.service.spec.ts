@@ -416,6 +416,7 @@ describe('ReservationDecisionsService', () => {
       createdAt: AHORA,
       decidedAt: null,
       rejectionReason: null,
+      tenantRating: null,
       listing: { id: PUBLICACION, name: 'Taladro' },
       tenant: {
         id: ARRENDATARIO,
@@ -452,12 +453,27 @@ describe('ReservationDecisionsService', () => {
             creadaAt: AHORA,
             decididaAt: null,
             motivoRechazo: null,
+            arrendatarioCalificado: false,
           },
         ],
         total: 30,
         page: 2,
         limit: 12,
       });
+    });
+
+    it('marca si el arrendatario ya fue calificado', async () => {
+      repo.findPageForLandlord.mockResolvedValue({
+        items: [{ ...fila, status: 'COMPLETADA', tenantRating: { id: 'c-1' } }],
+        total: 1,
+      });
+
+      const result = await service.listForLandlord(ARRENDADOR, {
+        page: 1,
+        limit: 12,
+      });
+
+      expect(result.items[0].arrendatarioCalificado).toBe(true);
     });
 
     it('si el arrendatario no tiene perfil usa su correo como nombre', async () => {

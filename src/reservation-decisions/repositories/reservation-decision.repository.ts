@@ -27,6 +27,8 @@ export interface LandlordRequestRow {
   createdAt: Date;
   decidedAt: Date | null;
   rejectionReason: string | null;
+  /** La calificación del arrendatario de esta reserva, si ya existe (H18). */
+  tenantRating: { id: string } | null;
   listing: { id: string; name: string };
   tenant: { id: string; email: string; profile: { name: string } | null };
 }
@@ -82,6 +84,7 @@ export class ReservationDecisionRepository {
           createdAt: true,
           decidedAt: true,
           rejectionReason: true,
+          tenantRating: { select: { id: true } },
           listing: { select: { id: true, name: true } },
           tenant: {
             select: {
