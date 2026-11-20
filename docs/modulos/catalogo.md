@@ -139,3 +139,54 @@ persistente en la misma ruta.
 
 El `POST` lleva `@Roles('ARRENDADOR')` (Módulo 0, MP4-126): sin sesión
 responde 401 y con una cuenta de arrendatario o revisor responde 403.
+
+## DB-02.1. Índices para la búsqueda por palabra clave (MP4-40)
+
+Migración
+[`20261120051614_add_listing_search_indexes`](../../prisma/migrations/20261120051614_add_listing_search_indexes/migration.sql).
+No agrega tablas ni columnas: la búsqueda lee `name` y `description` tal como
+están, sin copias normalizadas.
+
+| Objeto | Qué es | Para qué |
+|---|---|---|
+| `unaccent`, `pg_trgm` | Extensiones de PostgreSQL | Quitar acentos y permitir que un `LIKE '%texto%'` use índice. |
+| `search_text(texto)` | Función `IMMUTABLE` que devuelve `unaccent(lower(texto))` | Es la expresión de búsqueda. Los índices se crean sobre ella y las consultas deben usarla. |
+| `listings_name_search_idx` | GIN (`gin_trgm_ops`) sobre `search_text(name)` | Buscar en el nombre sin distinguir mayúsculas ni acentos. |
+| `listings_description_search_idx` | GIN (`gin_trgm_ops`) sobre `search_text(description)` | Lo mismo en la descripción. |
+| `listings_is_active_created_at_id_idx` | B-tree `(is_active, created_at DESC, id DESC)` | Orden por defecto del catálogo: activas, más reciente primero. |
+
+### Cómo se consulta
+
+```sql
+SELECT id, name FROM listings
+WHERE is_active
+  AND (search_text(name) LIKE '%' || search_text(:texto) || '%'
+    OR search_text(description) LIKE '%' || search_text(:texto) || '%')
+ORDER BY created_at DESC, id DESC;
+```
+
+### Decisiones
+
+- **Función `search_text` en vez de `unaccent(lower(...))` directo.**
+  `unaccent()` es `STABLE` y PostgreSQL solo acepta funciones `IMMUTABLE` en un
+  índice. La función fija esa expresión y la declara `IMMUTABLE`; por dentro
+  llama a `public.unaccent` con el esquema escrito, porque PostgreSQL construye
+  los índices con un `search_path` restringido. Supone que las extensiones
+  están en `public`, que es el esquema que usa el proyecto.
+- **Los índices GIN solo existen en la migración.** Prisma no modela índices
+  sobre expresiones; el B-tree del orden sí está en `schema.prisma`.
+- **Crear las extensiones pide permisos.** `CREATE EXTENSION` necesita un
+  usuario dueño de la base o superusuario. Con el `postgres` de Docker funciona;
+  en un proveedor administrado hay que confirmar que permita `unaccent` y
+  `pg_trgm`.
+- **Menos de 3 letras no usa el índice.** Los trigramas necesitan al menos tres
+  caracteres; con textos más cortos la búsqueda funciona igual pero recorre la
+  tabla.
+
+### Prueba
+
+[`test/listings.search.constraints.e2e-spec.ts`](../../test/listings.search.constraints.e2e-spec.ts)
+comprueba que existen las extensiones y los tres índices, que la búsqueda
+ignora mayúsculas y acentos en nombre y descripción, que no falla sin
+registros, que excluye las inactivas, el orden por defecto y que el
+planificador puede usar los índices.

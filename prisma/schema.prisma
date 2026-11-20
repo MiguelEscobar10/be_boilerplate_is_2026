@@ -180,6 +180,11 @@ model Listing {
   availabilityBlocks AvailabilityBlock[]
 
   @@index([landlordId])
+  // Orden por defecto del catálogo público (DB-02.1): activas, de la más
+  // reciente a la más antigua. Los índices de búsqueda por texto (pg_trgm
+  // sobre nombre y descripción sin acentos) están en la migración porque
+  // Prisma no modela índices sobre expresiones.
+  @@index([isActive, createdAt(sort: Desc), id(sort: Desc)])
   @@map("listings")
 }
 
