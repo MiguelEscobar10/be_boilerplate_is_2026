@@ -1,0 +1,74 @@
+# Demo completa para la cátedra (MP4-131): base de datos, backend y frontend
+# en una sola máquina con Docker. Ver docs/despliegue.md.
+#
+#   cp .env.demo.example .env.demo   # y cambiar los secretos
+#   docker compose -f docker-compose.demo.yml --env-file .env.demo up -d --build
+#   docker compose -f docker-compose.demo.yml --env-file .env.demo exec api npx prisma db seed
+#
+# El frontend se construye desde su repositorio, que se espera clonado al lado
+# de este (../fe_boilerplate_is_2026). Se puede cambiar con FRONTEND_DIR.
+name: mp4-demo
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Definí POSTGRES_USER en .env.demo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en .env.demo}
+      POSTGRES_DB: ${POSTGRES_DB:-mp4_demo}
+    # Sin puerto publicado: solo la ve el backend, dentro de la red de Compose.
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-mp4_demo}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  api:
+    image: mp4-backend:demo
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-mp4_demo}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?Definí JWT_SECRET en .env.demo (32 caracteres o más)}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      REFRESH_TOKEN_EXPIRES_IN_DAYS: ${REFRESH_TOKEN_EXPIRES_IN_DAYS:-7}
+      BCRYPT_SALT_ROUNDS: ${BCRYPT_SALT_ROUNDS:-12}
+      UPLOADS_DIR: /app/uploads
+      # Obligatorias en producción para el seed (crea la cuenta REVISOR, H07).
+      SEED_REVIEWER_EMAIL: ${SEED_REVIEWER_EMAIL:?Definí SEED_REVIEWER_EMAIL en .env.demo}
+      SEED_REVIEWER_PASSWORD: ${SEED_REVIEWER_PASSWORD:?Definí SEED_REVIEWER_PASSWORD en .env.demo}
+    volumes:
+      # Fotos de publicaciones y entregas, y documentos de identidad.
+      - uploads:/app/uploads
+    ports:
+      - '${API_PORT:-3000}:3000'
+    command: sh -c "npx prisma migrate deploy && node dist/main.js"
+
+  web:
+    image: mp4-frontend:demo
+    build:
+      context: ${FRONTEND_DIR:-../fe_boilerplate_is_2026}
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      # El servidor de Next llama al backend por la red interna de Compose.
+      API_URL: http://api:3000/api/v1
+    ports:
+      - '${WEB_PORT:-8080}:3000'
+
+volumes:
+  pgdata:
+  uploads:
