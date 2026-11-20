@@ -215,7 +215,7 @@ erDiagram
 
 ## Reglas que viven en la base
 
-Además de las llaves y los tipos, varias reglas se validan en PostgreSQL y no
+Conteos sacados de la base con todas las migraciones aplicadas (`pg_constraint`, `pg_indexes`, `pg_trigger`). Además de las llaves y los tipos, varias reglas se validan en PostgreSQL y no
 solo en el backend, para que no se puedan saltar ni con un error del código
 ni con un script. Prisma no modela estas reglas, así que se escriben a mano
 al final de cada migración, y la prueba `*.constraints.e2e-spec.ts` de cada
@@ -223,7 +223,7 @@ módulo las verifica.
 
 | Tipo | Cuántas | Ejemplos |
 |---|---|---|
-| `CHECK` | 46 | montos no negativos (`listings_rate_amount_check`), periodo con fin después del inicio (`reservations_period_check`), garantía retenida que no supera la depositada (`deposit_resolutions_retained_within_deposit_check`), texto no vacío (`messages_content_not_blank_check`) |
+| `CHECK` | 47 | montos no negativos (`listings_rate_amount_check`), periodo con fin después del inicio (`reservations_period_check`), garantía retenida que no supera la depositada (`deposit_resolutions_retained_within_deposit_check`), texto no vacío (`messages_content_not_blank_check`) |
 | Índices únicos parciales | 4 | una conversación previa por arrendatario y publicación (`conversations_pre_reservation_key`), una verificación pendiente por usuario, un pago aprobado por reserva, avisos sin duplicar (`notifications_dedupe_key`) |
 | Trigger | 1 | la conversación de una reserva es entre las dos personas de esa reserva (`conversations_reservation_participants`) |
 | Funciones de consulta | 4 | `listing_busy_periods`, `listing_day_occupancy`, `landlord_occupancy`, `listing_income` (calendario, ocupación e ingresos) |
