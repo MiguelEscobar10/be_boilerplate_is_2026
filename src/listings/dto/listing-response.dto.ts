@@ -87,3 +87,76 @@ export class ListingResponseDto extends ListingCreatedDto {
     };
   }
 }
+
+export class ListingRateDto {
+  @ApiProperty({ example: 15, description: 'Monto de la tarifa.' })
+  monto!: number;
+
+  @ApiProperty({ enum: RateUnit })
+  unidad!: RateUnit;
+}
+
+/** Promedios y total de calificaciones de una publicación (H17). */
+export interface ListingRatingSummary {
+  promedioBien: number | null;
+  promedioArrendador: number | null;
+  totalCalificaciones: number;
+}
+
+/**
+ * Detalle completo de una publicación (H12, BE-12.1): lo que el arrendatario
+ * necesita antes de reservar. Conserva los campos de BE-01.1 y agrega la
+ * tarifa y el depósito como número, los promedios y `requiereVerificacion`.
+ * Del arrendador solo sale su id: ni correo, ni teléfono, ni nombre.
+ */
+export class ListingDetailDto extends ListingResponseDto {
+  @ApiProperty({ type: ListingRateDto })
+  tarifa!: ListingRateDto;
+
+  @ApiProperty({ example: 20, description: 'Depósito de garantía.' })
+  deposito!: number;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'Si solo la pueden solicitar arrendatarios con identidad verificada (H19).',
+  })
+  requiereVerificacion!: boolean;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 4.5,
+    description:
+      'Promedio de las calificaciones de esta publicación, con un decimal. null si no tiene.',
+  })
+  promedioBien!: number | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 4.8,
+    description:
+      'Promedio del arrendador en todas sus publicaciones, con un decimal. null si no tiene.',
+  })
+  promedioArrendador!: number | null;
+
+  @ApiProperty({
+    example: 6,
+    description: 'Calificaciones de esta publicación. 0 si no tiene.',
+  })
+  totalCalificaciones!: number;
+
+  static fromDetail(
+    listing: Listing & { images: ListingImage[] },
+    ratings: ListingRatingSummary,
+  ): ListingDetailDto {
+    return Object.assign(ListingResponseDto.fromEntity(listing), {
+      tarifa: {
+        monto: listing.rateAmount.toNumber(),
+        unidad: listing.rateUnit,
+      },
+      deposito: listing.depositAmount.toNumber(),
+      requiereVerificacion: listing.requiresVerification,
+      ...ratings,
+    });
+  }
+}

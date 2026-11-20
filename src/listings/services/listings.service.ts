@@ -12,6 +12,7 @@ import {
   type ImageKind,
 } from './image-storage.service.js';
 import {
+  ListingDetailDto,
   ListingPageDto,
   ListingSummaryDto,
   type CreateListingDto,
@@ -24,8 +25,11 @@ import {
   startOfLocalDay,
   toLocalIso,
 } from '../../availability/services/local-time.js';
+import { ListingRatingsService } from '@ListingRatings/services';
 import type { Listing, ListingImage } from '@PrismaClient';
 
+/** `codigo` del 404 de una publicación desactivada o inexistente (H12). */
+export const PUBLICACION_NO_DISPONIBLE = 'PUBLICACION_NO_DISPONIBLE';
 export const MAX_IMAGES = 10;
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -40,6 +44,7 @@ export class ListingsService {
   constructor(
     private readonly listingRepository: ListingRepository,
     private readonly storage: ImageStorageService,
+    private readonly listingRatings: ListingRatingsService,
   ) {}
 
   async create(
@@ -151,13 +156,38 @@ export class ListingsService {
     return { from, to: new Date(lastDay.getTime() + DAY_MS) };
   }
 
+  /**
+   * @throws {NotFoundException} con `codigo: PUBLICACION_NO_DISPONIBLE` si no
+   *   existe o está desactivada; la respuesta no distingue entre los dos casos.
+   */
   async findById(id: string): Promise<ListingWithImages> {
     const listing = await this.listingRepository.findActiveById(id);
-    if (!listing)
-      throw new NotFoundException(
-        'La publicación no existe o no está disponible.',
-      );
+    if (!listing) {
+      throw new NotFoundException({
+        statusCode: 404,
+        codigo: PUBLICACION_NO_DISPONIBLE,
+        message: 'La publicación no existe o no está disponible.',
+        error: 'Not Found',
+      });
+    }
     return listing;
+  }
+
+  /**
+   * Detalle completo (H12): la publicación activa con sus fotos en orden, los
+   * promedios de calificaciones (BE-17.1) y cuántas tiene.
+   */
+  async findDetail(id: string): Promise<ListingDetailDto> {
+    const listing = await this.findById(id);
+    const [averages, totalCalificaciones] = await Promise.all([
+      this.listingRatings.promedioCalificaciones(id),
+      this.listingRepository.countRatings(id),
+    ]);
+    return ListingDetailDto.fromDetail(listing, {
+      promedioBien: averages.promedioBien,
+      promedioArrendador: averages.promedioArrendador,
+      totalCalificaciones,
+    });
   }
 
   async findImage(listingId: string, position: number): Promise<ListingImage> {

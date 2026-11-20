@@ -31,8 +31,8 @@ import { CurrentUser, Public, Roles } from '@Auth/decorators';
 import {
   CreateListingDto,
   ListingCreatedDto,
+  ListingDetailDto,
   ListingPageDto,
-  ListingResponseDto,
   ListListingsQueryDto,
 } from '@Listings/dto';
 import { UploadErrorsFilter } from '@Listings/filters';
@@ -114,18 +114,21 @@ export class ListingsController {
     return this.listingsService.search(query);
   }
 
-  /** Consulta pública de una publicación activa con sus imágenes en orden. */
+  /**
+   * Detalle completo de una publicación activa (H12): datos, fotos en orden,
+   * tarifa con unidad, depósito, condiciones y promedios de calificaciones.
+   * Es pública y no expone datos privados del arrendador.
+   */
   @Public()
   @Get(':id')
-  @ApiOperation({ summary: 'Consulta una publicación' })
-  @ApiOkResponse({ type: ListingResponseDto })
-  @ApiNotFoundResponse({ description: 'No existe o está desactivada.' })
-  async findOne(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<ListingResponseDto> {
-    return ListingResponseDto.fromEntity(
-      await this.listingsService.findById(id),
-    );
+  @ApiOperation({ summary: 'Consulta el detalle completo de una publicación' })
+  @ApiOkResponse({ type: ListingDetailDto })
+  @ApiNotFoundResponse({
+    description:
+      'No existe o está desactivada (`codigo: PUBLICACION_NO_DISPONIBLE`).',
+  })
+  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<ListingDetailDto> {
+    return this.listingsService.findDetail(id);
   }
 
   /** Sirve una foto de una publicación activa. */

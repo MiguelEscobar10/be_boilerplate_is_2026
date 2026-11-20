@@ -143,4 +143,9 @@ export class ListingRepository {
     ]);
     return { items, total };
   }
+
+  /** Cuántas calificaciones tiene la publicación (H17). */
+  countRatings(listingId: string): Promise<number> {
+    return this.prisma.listingLandlordRating.count({ where: { listingId } });
+  }
 }
