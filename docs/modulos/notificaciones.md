@@ -537,18 +537,18 @@ catálogo vigente, sacado del código de `main`, y lo verifica
 
 | Evento | Emisor (fuente del texto) | Destinatario | Título | Mensaje | `moduloOrigen` | Referencia |
 |---|---|---|---|---|---|---|
-| Solicitud nueva (H03) | BE-03.1, [`reservation-notice.ts:36`](../../src/reservations/services/reservation-notice.ts) | Arrendador | Nueva solicitud de reserva | `Solicitud de «{bien}» del {inicio} al {fin}.` | `RESERVAS` | `reserva` / id de la reserva |
-| Reserva CONFIRMADA (H04) | BE-04.1, [`decision-notice.ts:42`](../../src/reservation-decisions/services/decision-notice.ts) | Arrendatario | Reserva CONFIRMADA | `Tu reserva de «{bien}» del {inicio} al {fin} fue confirmada.` | `RESERVAS` | `reserva` / id de la reserva |
+| Solicitud nueva (H03) | BE-03.1, [`reservation-notice.ts`](../../src/reservations/services/reservation-notice.ts), `buildRequestNotice` | Arrendador | Nueva solicitud de reserva | `Solicitud de «{bien}» del {inicio} al {fin}.` | `RESERVAS` | `reserva` / id de la reserva |
+| Reserva CONFIRMADA (H04) | BE-04.1, [`decision-notice.ts`](../../src/reservation-decisions/services/decision-notice.ts), `buildDecisionNotice` | Arrendatario | Reserva CONFIRMADA | `Tu reserva de «{bien}» del {inicio} al {fin} fue confirmada.` | `RESERVAS` | `reserva` / id de la reserva |
 | Reserva RECHAZADA (H04) | BE-04.1, ídem | Arrendatario | Reserva RECHAZADA | `Tu reserva de «{bien}» del {inicio} al {fin} fue rechazada.` + ` Motivo: {motivo}` si lo hay (recortado con «…» para no pasar de 500) | `RESERVAS` | `reserva` / id de la reserva |
-| Pago APROBADO (H05) | BE-05.1, [`pagos.service.ts:139`](../../src/payments/services/pagos.service.ts) | Arrendatario | Pago aprobado | `Tu pago de ${total} por «{bien}» fue aprobado.` | `PAGOS_GARANTIA` | `pago` / id del intento |
+| Pago APROBADO (H05) | BE-05.1, [`pagos.service.ts`](../../src/payments/services/pagos.service.ts), `PagosService.avisar` | Arrendatario | Pago aprobado | `Tu pago de ${total} por «{bien}» fue aprobado.` | `PAGOS_GARANTIA` | `pago` / id del intento |
 | Pago APROBADO (H05) | BE-05.1, ídem | Arrendador | Pago confirmado | `Se confirmó el pago de ${total} de la reserva de «{bien}».` | `PAGOS_GARANTIA` | `pago` / id del intento |
 | Pago RECHAZADO (H05) | BE-05.1, ídem | Arrendatario | Pago rechazado | `Tu pago de ${total} por «{bien}» fue rechazado. La reserva sigue confirmada y puedes intentar el pago de nuevo.` | `PAGOS_GARANTIA` | `pago` / id del intento |
-| Mensaje nuevo (H15, H16) | BE-15.1, [`messaging.service.ts:138`](../../src/messaging/services/messaging.service.ts) | El otro participante (nunca el autor) | Mensaje nuevo | `Tenés un mensaje nuevo sobre "{bien}".` | `MENSAJERIA` | `mensaje` / id del mensaje |
+| Mensaje nuevo (H15, H16) | BE-15.1, [`messaging.service.ts`](../../src/messaging/services/messaging.service.ts), `MessagingService.sendMessage` | El otro participante (nunca el autor) | Mensaje nuevo | `Tenés un mensaje nuevo sobre "{bien}".` | `MENSAJERIA` | `mensaje` / id del mensaje |
 
 - `{inicio}` y `{fin}`: `dd/mm/aaaa hh:mm` en la hora de El Salvador.
 - `{total}`: costo del alquiler más el depósito, con dos decimales.
 - Fuera de este catálogo, BE-09.2 emite «Depósito de garantía resuelto» al
-  arrendatario ([`deposit-resolutions.service.ts:143`](../../src/returns/services/deposit-resolutions.service.ts)),
+  arrendatario ([`deposit-resolutions.service.ts`](../../src/returns/services/deposit-resolutions.service.ts), `DepositResolutionsService.avisar`),
   con referencia `reserva` y los montos liberado y retenido. El contrato se
   alineó con ese aviso en esta misma task (ver
   [`docs/contratos/servicio-avisos.md`](../contratos/servicio-avisos.md)).
@@ -579,11 +579,11 @@ y el arrendador ya ven en su panel, no un detalle financiero sensible.
 ### Limitación conocida
 
 Un intento de pago que queda en PENDIENTE porque el proceso se cayó se cierra
-como RECHAZADO en el siguiente intento (`cerrarComoRechazados`,
-`pagos.service.ts:85`), **sin aviso**. Lo mismo pasa si otro proceso cerró el
-intento mientras la pasarela respondía (`pagos.service.ts:122`). Son casos de
-falla del proceso, no del flujo normal, y el intento siguiente sí avisa. No se
-cambió en esta task.
+como RECHAZADO en el siguiente intento (`cerrarComoRechazados`, en
+`PagosService.pagar` de `pagos.service.ts`), **sin aviso**. Lo mismo pasa si
+otro proceso cerró el intento mientras la pasarela respondía (la rama
+`if (!cerrado)` de `PagosService.pagar`). Son casos de falla del proceso, no
+del flujo normal, y el intento siguiente sí avisa. No se cambió en esta task.
 
 ### Pruebas
 
