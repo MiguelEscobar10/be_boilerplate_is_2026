@@ -1,7 +1,7 @@
 # Modelo de datos
 
-Generado a partir de [`prisma/schema.prisma`](../prisma/schema.prisma) el 19 de
-noviembre de 2026, con `main` en `e82a9d7`: 17 tablas en PostgreSQL. `PK` es
+Generado a partir de [`prisma/schema.prisma`](../prisma/schema.prisma) el 20 de
+noviembre de 2026, con `main` en `6d31f63`: 18 tablas en PostgreSQL. `PK` es
 la llave primaria, `FK` una llave foránea y `UK` un valor único. Las
 relaciones `||--o|` son de 1 a 0..1 y las `||--o{` de 1 a muchos.
 
@@ -171,6 +171,17 @@ erDiagram
         string comment
         timestamp created_at
     }
+    listing_landlord_ratings {
+        string id PK
+        string reservation_id FK, UK
+        string author_id FK
+        string listing_id FK
+        string landlord_id FK
+        int listing_score
+        int landlord_score
+        string comment
+        timestamp created_at
+    }
     users ||--o{ refresh_tokens : "user"
     users ||--o{ notifications : "user"
     users ||--o{ listings : "landlord"
@@ -223,10 +234,12 @@ módulo las verifica.
 
 | Tipo | Cuántas | Ejemplos |
 |---|---|---|
-| `CHECK` | 47 | montos no negativos (`listings_rate_amount_check`), periodo con fin después del inicio (`reservations_period_check`), garantía retenida que no supera la depositada (`deposit_resolutions_retained_within_deposit_check`), texto no vacío (`messages_content_not_blank_check`) |
+| `CHECK` | 51 | montos no negativos (`listings_rate_amount_check`), periodo con fin después del inicio (`reservations_period_check`), garantía retenida que no supera la depositada (`deposit_resolutions_retained_within_deposit_check`), texto no vacío (`messages_content_not_blank_check`), puntajes de 1 a 5 (`listing_landlord_ratings_listing_score_check`) |
 | Índices únicos parciales | 4 | una conversación previa por arrendatario y publicación (`conversations_pre_reservation_key`), una verificación pendiente por usuario, un pago aprobado por reserva, avisos sin duplicar (`notifications_dedupe_key`) |
-| Trigger | 1 | la conversación de una reserva es entre las dos personas de esa reserva (`conversations_reservation_participants`) |
+| Triggers | 2 | la conversación de una reserva es entre las dos personas de esa reserva (`conversations_reservation_participants`); la calificación del bien y del arrendador coincide con la publicación y el arrendador de su reserva (`listing_landlord_ratings_consistency`) |
 | Funciones de consulta | 4 | `listing_busy_periods`, `listing_day_occupancy`, `landlord_occupancy`, `listing_income` (calendario, ocupación e ingresos) |
+| Índices de búsqueda | 3 | GIN con `pg_trgm` sobre `search_text(name)`, `search_text(description)` y `search_text(location)`; `search_text` quita tildes (`unaccent`) y pasa a minúsculas, para buscar sin importar acentos ni mayúsculas |
+| Extensiones | 2 | `unaccent` y `pg_trgm` |
 
 ## Cómo se mantiene
 
