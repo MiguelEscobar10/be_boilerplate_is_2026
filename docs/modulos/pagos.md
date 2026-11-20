@@ -366,6 +366,51 @@ npx vitest run --config ./vitest.config.e2e.ts test/payments.pagos-simulados.e2e
 En el paso 2, no dejes `DATABASE_URL` apuntando a la base `_test`: el helper
 le agregaría otro `_test`.
 
+## DB-06.1. Consulta del último pago por reserva (MP4-68)
+
+Consulta que usará BE-06.1 para devolver el estado del pago (historia H06).
+**No agrega migración, tablas, columnas ni índices**: el índice que pide la
+task ya lo creó DB-05.1 y aquí solo se verifica y se documenta su reutilización.
+
+### Consulta
+
+```sql
+SELECT * FROM simulated_payments
+WHERE reservation_id = $1
+ORDER BY created_at DESC, id DESC
+LIMIT 1;
+```
+
+En Prisma:
+
+```ts
+prisma.simulatedPayment.findFirst({
+  where: { reservationId },
+  orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+});
+```
+
+- Con varios intentos devuelve el más reciente.
+- Con cero intentos no devuelve ninguna fila (`null`).
+- Si dos intentos tuvieran el mismo `created_at`, `id DESC` desempata, así que
+  el resultado es siempre el mismo.
+
+### Índice
+
+Reutiliza `simulated_payments_reservation_id_created_at_id_idx`
+`(reservation_id, created_at DESC, id DESC)` de DB-05.1. El orden del índice
+coincide con el `ORDER BY`, así que Postgres lee una sola entrada, sin `Sort`.
+No se crea otro índice igual.
+
+### Prueba
+
+[`test/payments.latest-payment.e2e-spec.ts`](../../test/payments.latest-payment.e2e-spec.ts)
+comprueba: varios intentos, cero intentos, que no se mezclen pagos de otra
+reserva, el desempate por `id`, que exista un solo índice con esas columnas y
+que `EXPLAIN` lo use sin `Sort`. Para el `EXPLAIN` desactiva el recorrido
+secuencial dentro de una transacción (`SET LOCAL enable_seqscan = off`), porque
+con pocas filas el planificador lo prefiere.
+
 ## DB-21.1. Consulta de ingresos por bien (MP4-115)
 
 Consulta que usará BE-21.1 para el reporte de ingresos del arrendador
