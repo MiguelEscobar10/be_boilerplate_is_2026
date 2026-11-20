@@ -32,7 +32,7 @@ flowchart LR
 |---|---|---|---|
 | 0. Cuentas y roles | H00 | `src/auth`, `src/users` | [cuentas](modulos/cuentas.md) |
 | 1. Catálogo | H01, H12 | `src/listings` | [catalogo](modulos/catalogo.md) |
-| 2. Búsqueda y filtros | H02, H11 | (en desarrollo) | |
+| 2. Búsqueda y filtros | H02, H11 | `src/listings` | [catalogo](modulos/catalogo.md) |
 | 3. Reservas y disponibilidad | H03, H04, H13, H14 | `src/reservation-decisions`, `src/availability` | [reservas](modulos/reservas.md) |
 | 4. Pagos y garantía | H05, H06, H08, H09 | `src/payments`, `src/deliveries`, `src/returns` | [pagos](modulos/pagos.md), [entregas](modulos/entregas.md), [devoluciones](modulos/devoluciones.md) |
 | 5. Mensajería | H15, H16 | `src/messaging` | [mensajeria](modulos/mensajeria.md) |

@@ -41,6 +41,7 @@ módulo en [`modulos/`](modulos/).
 | Salud | GET | `/api/v1/` | pública | Health check |
 | Reportes (M9) | GET | `/api/v1/reportes/ingresos` | ARRENDADOR | Ingresos por bien del arrendador en un período |
 | Catálogo (M1) | POST | `/api/v1/publicaciones` | ARRENDADOR | Publica un equipo o espacio |
+| Búsqueda y filtros (M2) | GET | `/api/v1/publicaciones` | pública | Lista, busca y filtra publicaciones activas |
 | Catálogo (M1) | GET | `/api/v1/publicaciones/{id}` | pública | Consulta una publicación |
 | Catálogo (M1) | GET | `/api/v1/publicaciones/{id}/imagenes/{orden}` | pública | Devuelve una foto de la publicación |
 | Mensajería (M5) | POST | `/api/v1/publicaciones/{id}/conversaciones` | ARRENDATARIO | Abre (o reutiliza) la conversación con el arrendador |
