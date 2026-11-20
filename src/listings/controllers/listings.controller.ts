@@ -6,6 +6,7 @@ import {
   ParseIntPipe,
   ParseUUIDPipe,
   Post,
+  Query,
   Res,
   UploadedFiles,
   UseFilters,
@@ -30,7 +31,9 @@ import { CurrentUser, Public, Roles } from '@Auth/decorators';
 import {
   CreateListingDto,
   ListingCreatedDto,
+  ListingPageDto,
   ListingResponseDto,
+  ListListingsQueryDto,
 } from '@Listings/dto';
 import { UploadErrorsFilter } from '@Listings/filters';
 import {
@@ -92,6 +95,20 @@ export class ListingsController {
     const images = [...(files.imagenes ?? []), ...(files['imagenes[]'] ?? [])];
     const listing = await this.listingsService.create(user.id, dto, images);
     return ListingCreatedDto.fromEntity(listing);
+  }
+
+  /**
+   * Catálogo público (H02): publicaciones activas cuyo nombre o descripción
+   * contienen `buscar`, sin distinguir mayúsculas ni acentos. De la más
+   * reciente a la más antigua, 12 por página.
+   */
+  @Public()
+  @Get()
+  @ApiOperation({ summary: 'Lista y busca publicaciones activas' })
+  @ApiOkResponse({ type: ListingPageDto })
+  @ApiBadRequestResponse({ description: 'page, limit o buscar inválidos.' })
+  search(@Query() query: ListListingsQueryDto): Promise<ListingPageDto> {
+    return this.listingsService.search(query);
   }
 
   /** Consulta pública de una publicación activa con sus imágenes en orden. */

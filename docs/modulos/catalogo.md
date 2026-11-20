@@ -190,3 +190,71 @@ comprueba que existen las extensiones y los tres índices, que la búsqueda
 ignora mayúsculas y acentos en nombre y descripción, que no falla sin
 registros, que excluye las inactivas, el orden por defecto y que el
 planificador puede usar los índices.
+
+## BE-02.1. Listado público con búsqueda y paginación (MP4-41)
+
+### Endpoint
+
+| Método | Ruta | Sesión | Respuesta |
+|---|---|---|---|
+| `GET` | `/api/v1/publicaciones?buscar=taladro&page=1&limit=12` | No | `200 { items, page, total }` |
+
+| Parámetro | Por defecto | Regla |
+|---|---|---|
+| `buscar` | (vacío) | Texto de hasta 100 caracteres. Vacío o ausente devuelve todas las activas. |
+| `page` | `1` | Entero de 1 a 10 000. |
+| `limit` | `12` | Entero de 1 a 50. |
+
+```json
+{
+  "items": [
+    {
+      "id": "7c1e...",
+      "nombre": "Taladro percutor",
+      "precio": 15,
+      "tipo": "EQUIPO",
+      "tarifaUnidad": "DIA",
+      "ubicacion": "Antiguo Cuscatlán",
+      "imagenUrl": "/api/v1/publicaciones/7c1e.../imagenes/0"
+    }
+  ],
+  "page": 1,
+  "total": 1
+}
+```
+
+### Reglas
+
+- Solo publicaciones activas (`is_active = true`), siempre.
+- Coincide si el nombre **o** la descripción contienen el texto, sin
+  distinguir mayúsculas ni acentos: `salon` encuentra `Salón`. Usa
+  `search_text`, la misma expresión de los índices de DB-02.1.
+- Orden: `created_at DESC, id DESC` (más reciente primero).
+- `total` cuenta todas las coincidencias, no solo las de la página. Una página
+  más allá del final responde `200` con `items: []`.
+- `%` y `_` escritos por el usuario se buscan como texto, no como comodines.
+- **400** si `page` o `limit` no son enteros o salen de rango, si `buscar`
+  pasa de 100 caracteres o si llega un parámetro que no existe.
+
+### Decisiones
+
+- **`id` es UUID.** La ficha muestra `17` como ejemplo, pero las publicaciones
+  usan UUID desde DB-01.1.
+- **`precio` es un número** (`15`, `15.5`), como pide la ficha. Es la tarifa
+  por unidad; el detalle (`GET /publicaciones/{id}`) la sigue dando como
+  `tarifaMonto` en texto.
+- **Tres campos más que la ficha: `tarifaUnidad`, `ubicacion` e `imagenUrl`.**
+  FE-02.1 debe mostrar ubicación, tarifa y fotografía principal en cada
+  tarjeta; sin ellos haría una consulta de detalle por tarjeta. `imagenUrl` es
+  `null` si la publicación no tiene fotos.
+- **La consulta va en SQL (`$queryRaw`).** Prisma no puede llamar a
+  `search_text` desde un `where`. Los valores van como parámetros.
+- **Los filtros de BE-11.1** (tipo, ubicación, precio y fechas) se agregan a
+  `ListListingsQueryDto` y al `WHERE` de `ListingRepository.search`.
+
+### Pruebas
+
+[`test/listings.search.e2e-spec.ts`](../../test/listings.search.e2e-spec.ts):
+forma de la respuesta, búsqueda en nombre y descripción con y sin acentos,
+inactivas, cero resultados, orden, paginación, 12 por defecto, comodines y
+los 400.
