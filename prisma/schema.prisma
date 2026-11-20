@@ -185,6 +185,10 @@ model Listing {
   // sobre nombre y descripción sin acentos) están en la migración porque
   // Prisma no modela índices sobre expresiones.
   @@index([isActive, createdAt(sort: Desc), id(sort: Desc)])
+  // Filtros del catálogo (DB-11.1): por tipo, con el mismo orden por defecto,
+  // y por rango de tarifa. El de ubicación (pg_trgm) está en la migración.
+  @@index([isActive, type, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([isActive, rateAmount])
   @@map("listings")
 }
 
