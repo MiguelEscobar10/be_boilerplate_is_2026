@@ -65,6 +65,8 @@
       "@Reports/*": ["./src/reports/*/index.ts"],
       "@TenantRatings": ["./src/tenant-ratings/index.ts"],
       "@TenantRatings/*": ["./src/tenant-ratings/*/index.ts"],
+      "@ListingRatings": ["./src/listing-ratings/index.ts"],
+      "@ListingRatings/*": ["./src/listing-ratings/*/index.ts"],
       "@Health": ["./src/health/index.ts"],
       "@Health/*": ["./src/health/*/index.ts"],
       "@Prisma": ["./src/prisma/index.ts"],
