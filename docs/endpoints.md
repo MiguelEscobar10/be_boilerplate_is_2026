@@ -1,7 +1,7 @@
 # Resumen de endpoints
 
-Generado de los controladores de `src/` el 19 de noviembre de 2026, con `main`
-en `e82a9d7`. El contrato completo de cada uno (cuerpo, respuestas y errores)
+Generado de los controladores de `src/` el 20 de noviembre de 2026, con `main`
+en `6d31f63`. El contrato completo de cada uno (cuerpo, respuestas y errores)
 está en Swagger, en `/api/docs` con la API corriendo, y en el documento de cada
 módulo en [`modulos/`](modulos/).
 
@@ -41,7 +41,7 @@ módulo en [`modulos/`](modulos/).
 | Salud | GET | `/api/v1/` | pública | Health check |
 | Reportes (M9) | GET | `/api/v1/reportes/ingresos` | ARRENDADOR | Ingresos por bien del arrendador en un período |
 | Catálogo (M1) | POST | `/api/v1/publicaciones` | ARRENDADOR | Publica un equipo o espacio |
-| Búsqueda y filtros (M2) | GET | `/api/v1/publicaciones` | pública | Lista, busca y filtra publicaciones activas |
+| Búsqueda y filtros (M2) | GET | `/api/v1/publicaciones` | pública | Lista publicaciones activas; filtra por `buscar`, `tipo`, `ubicacion`, `precioMin`/`precioMax` y `fechaInicio`/`fechaFin` (disponibles), con `page` y `limit` |
 | Catálogo (M1) | GET | `/api/v1/publicaciones/{id}` | pública | Consulta una publicación |
 | Catálogo (M1) | GET | `/api/v1/publicaciones/{id}/imagenes/{orden}` | pública | Devuelve una foto de la publicación |
 | Mensajería (M5) | POST | `/api/v1/publicaciones/{id}/conversaciones` | ARRENDATARIO | Abre (o reutiliza) la conversación con el arrendador |
@@ -59,6 +59,7 @@ módulo en [`modulos/`](modulos/).
 | Pagos (M4) | GET | `/api/v1/reservas/{id}/deposito/resolucion` | con sesión | Consulta el estado de la garantía de una reserva propia |
 | Pagos (M4) | POST | `/api/v1/reservas/{id}/devolucion` | ARRENDADOR | Registra la devolución de una reserva EN_CURSO |
 | Pagos (M4) | GET | `/api/v1/reservas/{id}/devolucion` | con sesión | Consulta la devolución de una reserva propia |
+| Reseñas (M6) | POST | `/api/v1/reservas/{id}/calificacion-arrendatario` | ARRENDADOR | Califica al arrendatario de una reserva COMPLETADA |
 | Cuentas | POST | `/api/v1/users` | pública | Registra una cuenta de arrendador o arrendatario |
 | Verificación (M7) | PATCH | `/api/v1/publicaciones/{id}/requiere-verificacion` | ARRENDADOR | Activa o desactiva "requiere verificación" en una publicación propia |
 | Verificación (M7) | GET | `/api/v1/verificaciones` | REVISOR | Lista las solicitudes de un estado (por defecto, PENDIENTE) |
@@ -67,4 +68,4 @@ módulo en [`modulos/`](modulos/).
 | Verificación (M7) | POST | `/api/v1/usuarios/me/verificaciones` | ARRENDATARIO | Envía el documento de identidad para revisión |
 | Verificación (M7) | GET | `/api/v1/usuarios/me/verificaciones/ultima` | ARRENDATARIO | Consulta el estado de la última solicitud propia |
 
-Total: 37 endpoints.
+Total: 39 endpoints.

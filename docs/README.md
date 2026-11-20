@@ -3,8 +3,8 @@
 | Documento | Qué tiene |
 |---|---|
 | [arquitectura.md](arquitectura.md) | Vista general, módulos, capas del backend, flujo del alquiler, estados de la reserva y decisiones con su justificación |
-| [modelo-de-datos.md](modelo-de-datos.md) | Diagrama entidad-relación de las 17 tablas y las reglas que viven en la base |
-| [endpoints.md](endpoints.md) | Los 37 endpoints con su rol y para qué sirven, y las reglas comunes (autenticación, errores, 404 en recursos ajenos) |
+| [modelo-de-datos.md](modelo-de-datos.md) | Diagrama entidad-relación de las 18 tablas y las reglas que viven en la base |
+| [endpoints.md](endpoints.md) | Los 39 endpoints con su rol y para qué sirven, y las reglas comunes (autenticación, errores, 404 en recursos ajenos) |
 | [modulos/](modulos/) | Un documento por módulo con sus tablas, endpoints, decisiones, cómo revertir sus migraciones y cómo probarlo |
 | despliegue.md (pendiente, MP4-131) | Cómo publicar la demo con Docker o en una plataforma administrada; entra con el PR #59 |
 | [qa/](qa/) | Evidencia de las pruebas de cada historia, con sus casos, capturas y revisión |
