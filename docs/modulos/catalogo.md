@@ -139,3 +139,205 @@ persistente en la misma ruta.
 
 El `POST` lleva `@Roles('ARRENDADOR')` (Módulo 0, MP4-126): sin sesión
 responde 401 y con una cuenta de arrendatario o revisor responde 403.
+
+## DB-02.1. Índices para la búsqueda por palabra clave (MP4-40)
+
+Migración
+[`20261120051614_add_listing_search_indexes`](../../prisma/migrations/20261120051614_add_listing_search_indexes/migration.sql).
+No agrega tablas ni columnas: la búsqueda lee `name` y `description` tal como
+están, sin copias normalizadas.
+
+| Objeto | Qué es | Para qué |
+|---|---|---|
+| `unaccent`, `pg_trgm` | Extensiones de PostgreSQL | Quitar acentos y permitir que un `LIKE '%texto%'` use índice. |
+| `search_text(texto)` | Función `IMMUTABLE` que devuelve `unaccent(lower(texto))` | Es la expresión de búsqueda. Los índices se crean sobre ella y las consultas deben usarla. |
+| `listings_name_search_idx` | GIN (`gin_trgm_ops`) sobre `search_text(name)` | Buscar en el nombre sin distinguir mayúsculas ni acentos. |
+| `listings_description_search_idx` | GIN (`gin_trgm_ops`) sobre `search_text(description)` | Lo mismo en la descripción. |
+| `listings_is_active_created_at_id_idx` | B-tree `(is_active, created_at DESC, id DESC)` | Orden por defecto del catálogo: activas, más reciente primero. |
+
+### Cómo se consulta
+
+```sql
+SELECT id, name FROM listings
+WHERE is_active
+  AND (search_text(name) LIKE '%' || search_text(:texto) || '%'
+    OR search_text(description) LIKE '%' || search_text(:texto) || '%')
+ORDER BY created_at DESC, id DESC;
+```
+
+### Decisiones
+
+- **Función `search_text` en vez de `unaccent(lower(...))` directo.**
+  `unaccent()` es `STABLE` y PostgreSQL solo acepta funciones `IMMUTABLE` en un
+  índice. La función fija esa expresión y la declara `IMMUTABLE`; por dentro
+  llama a `public.unaccent` con el esquema escrito, porque PostgreSQL construye
+  los índices con un `search_path` restringido. Supone que las extensiones
+  están en `public`, que es el esquema que usa el proyecto.
+- **Los índices GIN solo existen en la migración.** Prisma no modela índices
+  sobre expresiones; el B-tree del orden sí está en `schema.prisma`.
+- **Crear las extensiones pide permisos.** `CREATE EXTENSION` necesita un
+  usuario dueño de la base o superusuario. Con el `postgres` de Docker funciona;
+  en un proveedor administrado hay que confirmar que permita `unaccent` y
+  `pg_trgm`.
+- **Menos de 3 letras no usa el índice.** Los trigramas necesitan al menos tres
+  caracteres; con textos más cortos la búsqueda funciona igual pero recorre la
+  tabla.
+
+### Prueba
+
+[`test/listings.search.constraints.e2e-spec.ts`](../../test/listings.search.constraints.e2e-spec.ts)
+comprueba que existen las extensiones y los tres índices, que la búsqueda
+ignora mayúsculas y acentos en nombre y descripción, que no falla sin
+registros, que excluye las inactivas, el orden por defecto y que el
+planificador puede usar los índices.
+
+## BE-02.1. Listado público con búsqueda y paginación (MP4-41)
+
+### Endpoint
+
+| Método | Ruta | Sesión | Respuesta |
+|---|---|---|---|
+| `GET` | `/api/v1/publicaciones?buscar=taladro&page=1&limit=12` | No | `200 { items, page, total }` |
+
+| Parámetro | Por defecto | Regla |
+|---|---|---|
+| `buscar` | (vacío) | Texto de hasta 100 caracteres. Vacío o ausente devuelve todas las activas. |
+| `page` | `1` | Entero de 1 a 10 000. |
+| `limit` | `12` | Entero de 1 a 50. |
+
+```json
+{
+  "items": [
+    {
+      "id": "7c1e...",
+      "nombre": "Taladro percutor",
+      "precio": 15,
+      "tipo": "EQUIPO",
+      "tarifaUnidad": "DIA",
+      "ubicacion": "Antiguo Cuscatlán",
+      "imagenUrl": "/api/v1/publicaciones/7c1e.../imagenes/0"
+    }
+  ],
+  "page": 1,
+  "total": 1
+}
+```
+
+### Reglas
+
+- Solo publicaciones activas (`is_active = true`), siempre.
+- Coincide si el nombre **o** la descripción contienen el texto, sin
+  distinguir mayúsculas ni acentos: `salon` encuentra `Salón`. Usa
+  `search_text`, la misma expresión de los índices de DB-02.1.
+- Orden: `created_at DESC, id DESC` (más reciente primero).
+- `total` cuenta todas las coincidencias, no solo las de la página. Una página
+  más allá del final responde `200` con `items: []`.
+- `%` y `_` escritos por el usuario se buscan como texto, no como comodines.
+- **400** si `page` o `limit` no son enteros o salen de rango, si `buscar`
+  pasa de 100 caracteres o si llega un parámetro que no existe.
+
+### Decisiones
+
+- **`id` es UUID.** La ficha muestra `17` como ejemplo, pero las publicaciones
+  usan UUID desde DB-01.1.
+- **`precio` es un número** (`15`, `15.5`), como pide la ficha. Es la tarifa
+  por unidad; el detalle (`GET /publicaciones/{id}`) la sigue dando como
+  `tarifaMonto` en texto.
+- **Tres campos más que la ficha: `tarifaUnidad`, `ubicacion` e `imagenUrl`.**
+  FE-02.1 debe mostrar ubicación, tarifa y fotografía principal en cada
+  tarjeta; sin ellos haría una consulta de detalle por tarjeta. `imagenUrl` es
+  `null` si la publicación no tiene fotos.
+- **La consulta va en SQL (`$queryRaw`).** Prisma no puede llamar a
+  `search_text` desde un `where`. Los valores van como parámetros.
+- **Los filtros de BE-11.1** (tipo, ubicación, precio y fechas) van en el
+  mismo endpoint; ver la sección BE-11.1.
+
+### Pruebas
+
+[`test/listings.search.e2e-spec.ts`](../../test/listings.search.e2e-spec.ts):
+forma de la respuesta, búsqueda en nombre y descripción con y sin acentos,
+inactivas, cero resultados, orden, paginación, 12 por defecto, comodines y
+los 400.
+
+## DB-11.1. Índices para los filtros del catálogo (MP4-44)
+
+Migración
+[`20261120084714_add_listing_filter_indexes`](../../prisma/migrations/20261120084714_add_listing_filter_indexes/migration.sql).
+No agrega tablas ni columnas.
+
+| Índice | Columnas | Filtro que sostiene |
+|---|---|---|
+| `listings_is_active_type_rate_amount_idx` | B-tree `(is_active, type, rate_amount)` | Tipo (`EQUIPO` o `ESPACIO`) y rango de tarifa sobre las activas. |
+| `listings_location_search_idx` | GIN (`gin_trgm_ops`) sobre `search_text(location)` | Ubicación que contiene el texto, sin distinguir mayúsculas ni acentos. |
+
+### Decisiones
+
+- **El filtro por fechas disponibles no agrega índices.** Una publicación está
+  disponible en un rango si `listing_busy_periods` (DB-13.1) no devuelve
+  ningún período ocupado; esa función ya usa los índices de `reservations`
+  (DB-03.1) y de `availability_blocks` (DB-14.1).
+- **La ubicación reutiliza `search_text` y `pg_trgm` de DB-02.1**, así
+  `san salvador` encuentra `San Salvador` y `cuscatlan` encuentra `Cuscatlán`.
+- **El B-tree empieza por `is_active`**, porque el catálogo público siempre
+  filtra las activas. Un rango de tarifa sin tipo no lo aprovecha completo;
+  con el volumen del proyecto no hace falta otro índice.
+- El B-tree está en `schema.prisma`; el GIN solo en la migración.
+
+### Prueba
+
+En [`test/listings.search.constraints.e2e-spec.ts`](../../test/listings.search.constraints.e2e-spec.ts):
+que existen los dos índices y que el planificador puede usarlos para filtrar
+por tipo con tarifa y por ubicación.
+
+## BE-11.1. Filtros del listado público (MP4-45)
+
+Mismo endpoint de BE-02.1, `GET /api/v1/publicaciones`, con filtros
+opcionales. Se combinan entre sí y con `buscar`: una publicación debe
+cumplirlos todos. La respuesta, el orden y la paginación no cambian.
+
+| Parámetro | Regla |
+|---|---|
+| `tipo` | `EQUIPO` o `ESPACIO`. |
+| `ubicacion` | La ubicación contiene el texto, sin distinguir mayúsculas ni acentos. Hasta 200 caracteres. |
+| `precioMin` | Tarifa mayor o igual. Número de 0 en adelante, con hasta dos decimales. |
+| `precioMax` | Tarifa menor o igual. No puede ser menor que `precioMin`. |
+| `fechaInicio`, `fechaFin` | Días `AAAA-MM-DD` en hora de El Salvador, los dos incluidos. Van juntos y `fechaInicio` no puede ser un día pasado. Devuelve solo las publicaciones libres en todo el rango. |
+
+Ejemplo:
+`GET /api/v1/publicaciones?tipo=ESPACIO&ubicacion=san salvador&precioMax=60&fechaInicio=2026-12-01&fechaFin=2026-12-03`
+
+### Reglas
+
+- **Disponible** significa que en el rango no hay reservas `CONFIRMADA` o
+  `EN_CURSO` ni bloqueos del arrendador. Las solicitudes `PENDIENTE` no
+  apartan fechas. Es la misma regla del calendario (H13), porque usa la misma
+  función `listing_busy_periods`.
+- Los períodos son semiabiertos: una reserva que termina justo cuando empieza
+  el rango no lo ocupa.
+- El precio compara la tarifa tal como está publicada, sin convertir entre
+  unidades (hora, día, noche, semana).
+- Con filtros que no dejan resultados responde `200` con `items: []`.
+- **400** si `tipo` no es del enum, un precio es negativo, no es número o
+  tiene más de dos decimales, `precioMin` supera a `precioMax`, llega solo una
+  de las dos fechas, una fecha no existe o tiene otro formato, `fechaFin` es
+  anterior a `fechaInicio` o `fechaInicio` ya pasó.
+
+### Decisiones
+
+- **Mismo formato y zona horaria que el calendario**
+  (`GET /publicaciones/{id}/disponibilidad`): días `AAAA-MM-DD` de El
+  Salvador. Los nombres son los de la ficha, `fechaInicio` y `fechaFin`.
+- **"En el pasado" se mide por día de El Salvador.** Hoy es válido como
+  `fechaInicio`; ayer no.
+- **Sin tope de días en el rango**, a diferencia del calendario: aquí no se
+  devuelven los períodos, solo se pregunta si hay alguno.
+- La conversión de fechas reutiliza `startOfLocalDay` del módulo de
+  disponibilidad, importado por ruta directa para no crear un ciclo entre los
+  dos módulos.
+
+### Pruebas
+
+[`test/listings.filters.e2e-spec.ts`](../../test/listings.filters.e2e-spec.ts)
+(29 pruebas): cada filtro por separado, combinados, con paginación, inactivas,
+fechas disponibles con reservas en cada estado y bloqueos, los extremos del
+rango y los 400.

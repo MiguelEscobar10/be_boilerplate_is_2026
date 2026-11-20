@@ -4,12 +4,18 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from '@Auth';
 import { DeliveriesModule } from '@Deliveries';
 import { JwtAuthGuard, RolesGuard } from '@Auth/guards';
+import { AvailabilityModule } from '@Availability';
 import { HealthModule } from '@Health';
+import { IncomeModule } from '@Income';
 import { ListingsModule } from '@Listings';
 import { MessagingModule } from '@Messaging';
 import { NotificationsModule } from '@Notifications';
 import { PaymentsModule } from '@Payments';
 import { PrismaModule } from '@Prisma';
+import { ReportsModule } from '@Reports';
+import { ReservationDecisionsModule } from '@ReservationDecisions';
+import { ReturnsModule } from '@Returns';
+import { TenantRatingsModule } from '@TenantRatings';
 import { UsersModule } from '@Users';
 import { VerificationModule } from '@Verification';
 import { validateEnv } from '@Config';
@@ -27,11 +33,17 @@ import { validateEnv } from '@Config';
     UsersModule,
     AuthModule,
     ListingsModule,
+    AvailabilityModule,
     NotificationsModule,
     MessagingModule,
     PaymentsModule,
     VerificationModule,
     DeliveriesModule,
+    ReturnsModule,
+    ReservationDecisionsModule,
+    IncomeModule,
+    ReportsModule,
+    TenantRatingsModule,
   ],
   providers: [
     {
