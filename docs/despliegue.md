@@ -18,6 +18,7 @@ cd be_boilerplate_is_2026
 # Variables: copiar la plantilla y cambiar TODOS los valores de ejemplo
 cp .env.demo.example .env.demo
 openssl rand -base64 48        # para JWT_SECRET
+openssl rand -hex 24           # para POSTGRES_PASSWORD (solo letras y números)
 
 # Construir y levantar (las migraciones corren solas al arrancar el backend)
 docker compose -f docker-compose.demo.yml --env-file .env.demo up -d --build
@@ -39,9 +40,15 @@ git -C ../fe_boilerplate_is_2026 pull && git pull
 docker compose -f docker-compose.demo.yml --env-file .env.demo up -d --build
 ```
 
-### Qué se probó (19 de noviembre de 2026)
+### Qué se probó
 
-Con `main` del backend en `e82a9d7` y del frontend en `17687c6`:
+**20 de noviembre de 2026**, con `main` del backend en `6d31f63`: en un
+PostgreSQL 18 alpine nuevo se aplican las 23 migraciones (incluidas
+`unaccent` y `pg_trgm`) y el seed crea el REVISOR.
+
+**19 de noviembre de 2026**
+
+con `main` del backend en `e82a9d7` y del frontend en `17687c6`:
 
 - El backend aplica las 20 migraciones al arrancar y el seed crea el REVISOR;
   `POST /auth/login` del revisor responde 200.
@@ -71,6 +78,17 @@ Lo que hay que configurar es lo mismo en todas:
 - **`JWT_SECRET` y `SEED_REVIEWER_*` son obligatorias en producción:** el
   backend no arranca sin `JWT_SECRET` y el seed falla a propósito sin las
   credenciales del revisor (no se crea un revisor con contraseña por defecto).
+- **La contraseña de la base va sin codificar dentro de `DATABASE_URL`:** que
+  sea alfanumérica (`openssl rand -hex 24`). Con `-base64` puede traer `/`, `+`
+  o `=` y la URL queda inválida.
+- **Extensiones de PostgreSQL:** la migración de la búsqueda
+  (`20261120051614_add_listing_search_indexes`) crea `unaccent` y `pg_trgm`.
+  Con el compose no hay problema, porque `POSTGRES_USER` es superusuario y la
+  imagen alpine trae las dos. En una base administrada hay que confirmar que el
+  proveedor las permita antes de desplegar.
+- **`npm ci` depende de la versión de npm:** con la imagen `node:24-alpine`
+  funciona; con npm 10 (Node 22) falla por el lock (`Missing: typescript`).
+  Si se cambia la imagen base o se instala fuera de Docker, usar Node 24.
 - **El volumen de `/app/uploads`** es lo que más fácil se olvida en una
   plataforma administrada: sin él la demo parece funcionar hasta el siguiente
   despliegue.
