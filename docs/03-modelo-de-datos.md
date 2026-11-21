@@ -242,7 +242,7 @@ erDiagram
 | `notifications` | Bandeja de avisos de cada usuario ([notificaciones](modulos/notificaciones.md)) | `user_id`, `source_module`, `title`, `message`, `reference_type` y `reference_id`, `read_at` (nulo = no leída) |
 | `listings` | Equipo o espacio publicado por un arrendador ([catalogo](modulos/catalogo.md)) | `landlord_id`, `type`, `rate_amount` y `rate_unit`, `deposit_amount`, `is_active`, `requires_verification` |
 | `listing_images` | Fotos de una publicación, en orden ([catalogo](modulos/catalogo.md)) | `listing_id`, `path` privado, `position` única por publicación |
-| `reservations` | Solicitud y reserva de un bien en un período ([reservas](modulos/reservas.md)) | `listing_id`, `tenant_id`, `start_at` y `end_at`, `status`, `rental_cost` y `deposit_amount` fotografiados, `decided_by`, `rejection_reason` |
+| `reservations` | Solicitud y reserva de un bien en un período ([reservas](modulos/reservas.md)) | `listing_id`, `tenant_id`, `start_at` y `end_at`, `status`, `rental_cost` y `deposit_amount` fotografiados, `decided_at`, `decided_by`, `rejection_reason` |
 | `availability_blocks` | Fechas que el arrendador bloquea en un bien propio ([reservas](modulos/reservas.md)) | `listing_id`, `start_at` y `end_at`, `reason` opcional, `created_by` |
 | `simulated_payments` | Intentos de pago simulado de una reserva, hasta 3 ([pagos](modulos/pagos.md)) | `reservation_id`, `attempt_number` único por reserva, `status`, `total_amount`, `card_last4` (solo los últimos 4 dígitos), `rejection_reason` |
 | `deliveries` | Entrega del bien que inicia el alquiler ([entregas](modulos/entregas.md)) | `reservation_id` único, `delivered_at`, `initial_condition_note`, `registered_by` |

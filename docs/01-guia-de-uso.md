@@ -155,7 +155,10 @@ frontend esas pantallas todavía piden sesión (ver
 #### Registrar la entrega (H08)
 
 1. Como ARRENDADOR, abrir `/reservas/{id}/entrega` de una reserva CONFIRMADA
-   de un bien propio.
+   de un bien propio. Hoy hay que escribir la URL: el enlace va en el detalle
+   de las reservas CONFIRMADAS de «Mis solicitudes» (`AccionEntrega`) y está
+   pendiente desde el PR #10 del frontend (ver
+   [problemas conocidos](09-problemas-conocidos.md)).
 2. Escribir la nota del estado inicial (hasta 500 caracteres) y agregar hasta
    5 fotos JPG o PNG de 5 MB como máximo.
 3. Confirmar. Se muestra «Entrega registrada. La reserva pasó a EN_CURSO.».
