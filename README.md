@@ -372,7 +372,7 @@ La contraseña debe tener entre 8 y 72 caracteres, con al menos una minúscula, 
 ```bash
 curl -X POST $BASE/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"demo@example.com","password":"Demo1234!"}'
+  -d '{"email":"arrendatario@example.com","password":"Arrendatario1234!"}'
 ```
 
 ```jsonc
@@ -381,7 +381,7 @@ curl -X POST $BASE/auth/login \
   "accessToken": "eyJhbGciOiJIUzI1NiIs...",
   "refreshToken": "dbfcf084b4a238cf9afaaa2f800ee216...",
   "expiresIn": 900,
-  "user": { "id": "...", "email": "demo@example.com", "isActive": true, "createdAt": "..." }
+  "user": { "id": "...", "email": "arrendatario@example.com", "isActive": true, "createdAt": "..." }
 }
 ```
 
