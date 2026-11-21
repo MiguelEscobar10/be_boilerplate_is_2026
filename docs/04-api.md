@@ -1,6 +1,6 @@
 # API
 
-**Documentación interactiva (Swagger):** [PENDIENTE: URL pública de `/api/docs` en la demo desplegada; la sabe Lee]. En local:
+**Documentación interactiva (Swagger):** https://mp4-backend-4ua0.onrender.com/api/docs (pública). En local:
 `http://localhost:3000/api/docs`.
 
 Todas las rutas cuelgan de `/api/v1`. El contrato completo de cada endpoint
