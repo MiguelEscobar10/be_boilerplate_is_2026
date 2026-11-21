@@ -1,4 +1,11 @@
-import { Body, Controller, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -6,6 +13,7 @@ import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -15,6 +23,7 @@ import {
   CrearPagoSimuladoDto,
   ErrorPagoDto,
   PagoSimuladoResponseDto,
+  UltimoPagoResponseDto,
 } from '@Payments/dto';
 import { PagosService } from '@Payments/services';
 import type { User } from '@PrismaClient';
@@ -60,5 +69,29 @@ export class PagosController {
     // Solo los últimos 4 dígitos salen del controller: el número completo y
     // el código de seguridad no se guardan ni se pasan a nadie.
     return this.pagos.pagar(reservaId, user.id, dto.numeroTarjeta.slice(-4));
+  }
+
+  /** Estado del último pago de una reserva propia (H06). */
+  @Roles('ARRENDATARIO')
+  @Get('reservas/:id/pagos/ultimo')
+  @ApiOperation({
+    summary: 'Consulta el último pago de una reserva propia',
+    description:
+      'Devuelve el intento de pago más reciente. Se consulta siempre en la base, sin caché. La reserva debe ser del arrendatario que pregunta.',
+  })
+  @ApiOkResponse({ type: UltimoPagoResponseDto })
+  @ApiBadRequestResponse({ description: 'El id no es un UUID.' })
+  @ApiUnauthorizedResponse({ description: 'Falta la sesión.' })
+  @ApiForbiddenResponse({ description: 'Solo un arrendatario consulta pagos.' })
+  @ApiNotFoundResponse({
+    type: ErrorPagoDto,
+    description:
+      'La reserva no existe o es de otro arrendatario (sin codigo); o es propia pero sin pagos, con codigo PAGO_NO_REGISTRADO.',
+  })
+  ultimoPago(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) reservaId: string,
+  ): Promise<UltimoPagoResponseDto> {
+    return this.pagos.ultimoPago(reservaId, user.id);
   }
 }
