@@ -28,10 +28,18 @@ se abren con `@Public()`. Sin token o con uno inválido la respuesta es 401;
 con un rol que no corresponde, 403 (`RolesGuard`, que lee el rol de la base en
 cada petición); un recurso ajeno responde 404.
 
-En el frontend el token no llega al navegador: se guarda en la cookie
-httpOnly `session` y los route handlers de Next lo reenvían como Bearer. El
-frontend no usa el refresh token: cuando el access token vence, manda al
+El frontend no usa el refresh token: cuando el access token vence, manda al
 login.
+
+### Diferencias con la sección 2.1 de la especificación
+
+Son decisiones del equipo; el detalle está en
+[decisiones técnicas](02-arquitectura.md#decisiones-técnicas).
+
+| Especificación (sección 2.1) | Implementado | Motivo |
+|---|---|---|
+| Registro con `POST /api/v1/auth/registro` | `POST /api/v1/users`, el endpoint del boilerplate | Es el mismo recurso y así no hay dos formas de crear una cuenta. Se cumple el resto del contrato: un endpoint para las dos pantallas, `rol` solo ARRENDADOR o ARRENDATARIO y 400 `ROL_NO_PERMITIDO` para cualquier otro valor ([cuentas](modulos/cuentas.md)). |
+| Token y rol en `localStorage` (clave `sesion`) | Token en la cookie httpOnly `session` del servidor de Next; los route handlers de Next lo reenvían como Bearer | El JavaScript del navegador no puede leer una cookie httpOnly, así que un script inyectado no roba el token. El rol no se guarda en el navegador: se pide con `GET /auth/me` (frontend, `docs/decisiones/manejo-de-estado.md`). |
 
 ## Endpoints por módulo
 

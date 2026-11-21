@@ -8,6 +8,17 @@ buscarlos, reservarlos, pagarlos (simulado), coordinar la entrega y calificar.
 - **Documentación:** [`docs/`](docs/README.md): [arquitectura y decisiones](docs/arquitectura.md), [modelo de datos](docs/modelo-de-datos.md), [endpoints](docs/endpoints.md), [módulos](docs/modulos/) y [QA](docs/qa/)
 - **Cómo trabajamos:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
+### Documentación de la entrega
+
+- [01. Guía de uso](docs/01-guia-de-uso.md)
+- [02. Arquitectura](docs/02-arquitectura.md)
+- [03. Modelo de datos](docs/03-modelo-de-datos.md)
+- [04. API](docs/04-api.md)
+- [05. Instalación local](docs/05-instalacion-local.md)
+- [06. Despliegue](docs/06-despliegue.md)
+- [07. Forma de trabajo](docs/07-forma-de-trabajo.md)
+- [09. Problemas conocidos](docs/09-problemas-conocidos.md)
+
 ## Integrantes
 
 Cada historia tiene un dueño que hace sus cuatro tareas: base de datos,
@@ -76,13 +87,13 @@ import { AuthService } from './auth.service.js'; // ✅
 import { AuthService } from './auth.service';    // ❌ falla en runtime
 ```
 
-**Prisma 7 no lee la conexión desde `schema.prisma`.** A diferencia de versiones anteriores, la connection string se entrega en tiempo de ejecución mediante un *driver adapter* (`@prisma/adapter-pg`). Eso ocurre en [prisma.service.ts](src/prisma/prisma.service.ts). El CLI, por su lado, la toma de [prisma.config.ts](prisma.config.ts).
+**Prisma 7 no lee la conexión desde `schema.prisma`.** A diferencia de versiones anteriores, la connection string se entrega en tiempo de ejecución mediante un *driver adapter* (`@prisma/adapter-pg`). Eso ocurre en [prisma.service.ts](src/prisma/services/prisma.service.ts). El CLI, por su lado, la toma de [prisma.config.ts](prisma.config.ts).
 
 ---
 
 ## Requisitos previos
 
-- **Node.js ≥ 20.19** (recomendado 22 o 24). Prisma 7 requiere `^20.19 || ^22.12 || >=24`
+- **Node.js 24** con su npm, la misma versión del `Dockerfile`. Prisma 7 aceptaría `^20.19 || ^22.12 || >=24`, pero con npm 10 (Node 22) `npm ci` falla por el lock (ver [`CONTRIBUTING.md`](CONTRIBUTING.md) y [`docs/despliegue.md`](docs/despliegue.md))
 - **Docker** y **Docker Compose v2+**
 - **npm**, **yarn** o **pnpm**
 
@@ -237,7 +248,7 @@ npm run prisma:migrate && npm run db:seed
 
 ## Prisma en detalle
 
-El schema vive en [prisma/schema.prisma](prisma/schema.prisma) y define dos modelos: `User` y `RefreshToken`.
+El schema vive en [prisma/schema.prisma](prisma/schema.prisma) y define 18 modelos: los dos del boilerplate (`User` y `RefreshToken`) y los de cada módulo del proyecto. El diagrama y la descripción de cada tabla están en [docs/03-modelo-de-datos.md](docs/03-modelo-de-datos.md).
 
 La configuración del CLI está en [prisma.config.ts](prisma.config.ts) (rutas del schema y las migraciones, comando de seed, y de dónde sale `DATABASE_URL`).
 
@@ -497,7 +508,7 @@ nest build && tsc-alias -p tsconfig.build.json
 ├── Dockerfile                    # Imagen multi-stage de la API
 ├── prisma.config.ts              # Configuración del CLI de Prisma
 ├── prisma/
-│   ├── schema.prisma             # Modelos User y RefreshToken
+│   ├── schema.prisma             # 18 modelos (User, RefreshToken y los del proyecto)
 │   ├── migrations/               # Migraciones versionadas
 │   └── seed.ts                   # Usuario demo
 └── src/
