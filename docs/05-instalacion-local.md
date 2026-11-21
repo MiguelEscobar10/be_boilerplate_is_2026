@@ -55,6 +55,26 @@ en el [README](../README.md).
    contraseñas. En desarrollo también crea el usuario `demo@example.com` que
    trae el boilerplate (sin perfil); no es una cuenta del proyecto y no se
    crea en producción.
+
+   También crea datos de ejemplo (en desarrollo y en producción), todos a
+   nombre de la cuenta ARRENDADOR:
+
+   - 5 publicaciones activas de equipos y espacios, con tarifas por hora,
+     día, noche y semana, y depósito. El proyector multimedia **requiere
+     verificación** de identidad.
+   - Un bloqueo de 3 días en la cabaña, dos semanas después de la primera
+     corrida.
+   - Dos reservas del ARRENDATARIO: una **PENDIENTE** del salón (una semana
+     después, para aprobar o rechazar y luego pagar) y una **CONFIRMADA** del
+     taladro que empezó el día anterior (para pagar, registrar la entrega y
+     la devolución).
+
+   Cada fila tiene un id fijo (empieza con `5eed`) y, si ya existe, no se
+   toca: correr el seed otra vez no duplica nada ni deshace lo hecho en la
+   demo. Las fechas se fijan en la primera corrida; para regenerarlas,
+   `npm run db:reset`. Las publicaciones no llevan fotos (las imágenes viven
+   en disco y en Render se pierden al reiniciar); el frontend muestra "Sin
+   fotografía".
 5. Levantar el frontend en otra terminal:
 
    ```bash
