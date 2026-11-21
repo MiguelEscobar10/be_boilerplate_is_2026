@@ -280,16 +280,17 @@ npm run db:reset
 
 ### Seed
 
-[prisma/seed.ts](prisma/seed.ts) crea una cuenta por rol mediante `upsert`, así que se puede correr las veces que haga falta. En desarrollo usa estos accesos:
+[prisma/seed.ts](prisma/seed.ts) crea una cuenta por rol mediante `upsert`, así que se puede correr las veces que haga falta: si la cuenta ya existe le asegura el rol, pero no le cambia la contraseña. En desarrollo, si no se definen las variables `SEED_*`, usa estos accesos:
 
 | Rol | Email | Contraseña |
 |---|---|---|
 | ARRENDADOR | `arrendador@example.com` | `Arrendador1234!` |
 | ARRENDATARIO | `arrendatario@example.com` | `Arrendatario1234!` |
 | REVISOR | `revisor@example.com` | `Revisor1234!` |
-| (sin perfil, del boilerplate) | `demo@example.com` | `Demo1234!` |
 
-En producción (`NODE_ENV=production`) no hay accesos por defecto: el seed exige `SEED_LANDLORD_*`, `SEED_TENANT_*` y `SEED_REVIEWER_*` (email y contraseña de cada una), no imprime las contraseñas y no crea `demo@example.com`. Ver [docs/despliegue.md](docs/despliegue.md).
+En desarrollo también crea `demo@example.com` / `Demo1234!`, el usuario del boilerplate (rol ARRENDATARIO por defecto, sin perfil); no es una cuenta del proyecto.
+
+En producción (`NODE_ENV=production`) no hay accesos por defecto: el seed exige `SEED_LANDLORD_*`, `SEED_TENANT_*` y `SEED_REVIEWER_*` (email y contraseña de cada una), falla si falta alguna, no imprime las contraseñas y no crea `demo@example.com`. Las variables están en [`.env.example`](.env.example) y [`.env.demo.example`](.env.demo.example). Ver [docs/despliegue.md](docs/despliegue.md).
 
 ---
 
@@ -515,7 +516,7 @@ nest build && tsc-alias -p tsconfig.build.json
 ├── prisma/
 │   ├── schema.prisma             # 18 modelos (User, RefreshToken y los del proyecto)
 │   ├── migrations/               # Migraciones versionadas
-│   └── seed.ts                   # Usuario demo
+│   └── seed.ts                   # Una cuenta por rol (y el usuario demo en desarrollo)
 └── src/
     ├── main.ts                   # Bootstrap: prefijo, validación, Swagger
     ├── app.module.ts             # Módulo raíz y guard global
@@ -575,5 +576,5 @@ Cada carpeta de capa incluye un `index.ts` que reexporta sus elementos, de modo 
 | `prisma:migrate` | Crea y aplica una migración (desarrollo) |
 | `prisma:deploy` | Aplica migraciones pendientes (producción) |
 | `prisma:studio` | Abre Prisma Studio |
-| `db:seed` | Carga el usuario demo |
+| `db:seed` | Crea una cuenta por rol (ARRENDADOR, ARRENDATARIO, REVISOR) |
 | `db:reset` | Resetea la base y vuelve a migrar |
