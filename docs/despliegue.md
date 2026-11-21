@@ -1,8 +1,11 @@
 # Despliegue de la demo (MP4-131)
 
 Cómo publicar la demo completa: base de datos, backend y frontend. La
-configuración está probada con Docker. Falta elegir dónde alojarla y anotar
-la URL en el README.
+configuración está probada con Docker. La demo publicada corre en Render:
+frontend en https://mp4-frontend.onrender.com y backend en
+https://mp4-backend-4ua0.onrender.com/api/v1 (Swagger en `/api/docs`). Los
+detalles y las limitaciones del plan están en
+[06-despliegue.md](06-despliegue.md).
 
 ## Opción 1: una máquina con Docker (VPS o la de la cátedra)
 
@@ -105,10 +108,11 @@ Lo que hay que configurar es lo mismo en todas:
   La cookie de sesión se marca `secure` en producción, así que **el frontend
   necesita HTTPS** para que el login funcione fuera de `localhost`.
 
-## Cuando esté publicada
+## Después de publicarla
 
-1. Anotar la URL del frontend en el README de los dos repositorios (sección
-   del proyecto) y, si se deja abierto, la de Swagger.
+La URL de la demo y la de Swagger ya están en el README de este repositorio y
+MP4-131 está cerrada en Jira. Queda:
+
+1. Anotar la URL de la demo en el README del frontend.
 2. Pasar a la cátedra las tres cuentas del seed por un canal privado, no en el
    README.
-3. Cerrar MP4-131 en Jira con la URL.
