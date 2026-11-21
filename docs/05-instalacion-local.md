@@ -64,10 +64,15 @@ en el [README](../README.md).
      verificación** de identidad.
    - Un bloqueo de 3 días en la cabaña, dos semanas después de la primera
      corrida.
-   - Dos reservas del ARRENDATARIO: una **PENDIENTE** del salón (una semana
+   - Reservas del ARRENDATARIO: una **PENDIENTE** del salón (una semana
      después, para aprobar o rechazar y luego pagar) y una **CONFIRMADA** del
      taladro que empezó el día anterior (para pagar, registrar la entrega y
      la devolución).
+   - Una reserva **COMPLETADA** del ARRENDATARIO: la carpa, hace 10 días, con
+     pago aprobado, entrega, devolución sin observaciones y garantía
+     liberada. Da datos a los reportes de ingresos y de ocupación (el mes en
+     curso, o un rango que incluya esas fechas) y deja pendientes las dos
+     calificaciones (bien y arrendador, y arrendatario).
 
    Cada fila tiene un id fijo (empieza con `5eed`) y, si ya existe, no se
    toca: correr el seed otra vez no duplica nada ni deshace lo hecho en la
