@@ -36,7 +36,7 @@ módulo en [`modulos/`](modulos/).
 | Cuentas | GET | `/api/v1/auth/me` | con sesión | Devuelve el usuario autenticado |
 | Catálogo (M1) | POST | `/api/v1/publicaciones` | ARRENDADOR | Publica un equipo o espacio |
 | Búsqueda y filtros (M2) | GET | `/api/v1/publicaciones` | pública | Lista, busca y filtra publicaciones activas |
-| Catálogo (M1) | GET | `/api/v1/publicaciones/{id}` | pública | Consulta una publicación |
+| Catálogo (M1) | GET | `/api/v1/publicaciones/{id}` | pública | Consulta el detalle completo de una publicación |
 | Catálogo (M1) | GET | `/api/v1/publicaciones/{id}/imagenes/{orden}` | pública | Devuelve una foto de la publicación |
 | Reservas y disponibilidad (M3) | GET | `/api/v1/publicaciones/{id}/disponibilidad` | pública | Períodos ocupados de una publicación en un rango de fechas |
 | Reservas y disponibilidad (M3) | POST | `/api/v1/publicaciones/{id}/bloqueos` | ARRENDADOR | Bloquea un rango de fechas de una publicación propia |
