@@ -45,7 +45,11 @@ services:
       REFRESH_TOKEN_EXPIRES_IN_DAYS: ${REFRESH_TOKEN_EXPIRES_IN_DAYS:-7}
       BCRYPT_SALT_ROUNDS: ${BCRYPT_SALT_ROUNDS:-12}
       UPLOADS_DIR: /app/uploads
-      # Obligatorias en producción para el seed (crea la cuenta REVISOR, H07).
+      # Obligatorias en producción para el seed (una cuenta por rol).
+      SEED_LANDLORD_EMAIL: ${SEED_LANDLORD_EMAIL:?Definí SEED_LANDLORD_EMAIL en .env.demo}
+      SEED_LANDLORD_PASSWORD: ${SEED_LANDLORD_PASSWORD:?Definí SEED_LANDLORD_PASSWORD en .env.demo}
+      SEED_TENANT_EMAIL: ${SEED_TENANT_EMAIL:?Definí SEED_TENANT_EMAIL en .env.demo}
+      SEED_TENANT_PASSWORD: ${SEED_TENANT_PASSWORD:?Definí SEED_TENANT_PASSWORD en .env.demo}
       SEED_REVIEWER_EMAIL: ${SEED_REVIEWER_EMAIL:?Definí SEED_REVIEWER_EMAIL en .env.demo}
       SEED_REVIEWER_PASSWORD: ${SEED_REVIEWER_PASSWORD:?Definí SEED_REVIEWER_PASSWORD en .env.demo}
     volumes:

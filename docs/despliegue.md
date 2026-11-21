@@ -23,7 +23,7 @@ openssl rand -hex 24           # para POSTGRES_PASSWORD (solo letras y números)
 # Construir y levantar (las migraciones corren solas al arrancar el backend)
 docker compose -f docker-compose.demo.yml --env-file .env.demo up -d --build
 
-# Una sola vez: crear la cuenta REVISOR
+# Una sola vez: crear una cuenta por rol (ARRENDADOR, ARRENDATARIO y REVISOR)
 docker compose -f docker-compose.demo.yml --env-file .env.demo exec api npx prisma db seed
 ```
 
@@ -65,19 +65,20 @@ Lo que hay que configurar es lo mismo en todas:
 | Servicio | Cómo | Variables |
 |---|---|---|
 | PostgreSQL 18 | Base administrada de la plataforma | Su `DATABASE_URL` (con `?schema=public`) |
-| Backend | Imagen desde `Dockerfile` de este repo. Comando de inicio: `sh -c "npx prisma migrate deploy && node dist/main.js"` | `NODE_ENV=production`, `DATABASE_URL`, `JWT_SECRET` (32+ caracteres), `UPLOADS_DIR=/app/uploads`, `SEED_REVIEWER_EMAIL`, `SEED_REVIEWER_PASSWORD`, y opcionales `JWT_EXPIRES_IN`, `REFRESH_TOKEN_EXPIRES_IN_DAYS`, `BCRYPT_SALT_ROUNDS` |
+| Backend | Imagen desde `Dockerfile` de este repo. Comando de inicio: `sh -c "npx prisma migrate deploy && node dist/main.js"` | `NODE_ENV=production`, `DATABASE_URL`, `JWT_SECRET` (32+ caracteres), `UPLOADS_DIR=/app/uploads`, las seis `SEED_*` (`SEED_LANDLORD_*`, `SEED_TENANT_*` y `SEED_REVIEWER_*`, email y contraseña de cada una), y opcionales `JWT_EXPIRES_IN`, `REFRESH_TOKEN_EXPIRES_IN_DAYS`, `BCRYPT_SALT_ROUNDS` |
 | Volumen | **Disco persistente montado en `/app/uploads`** del backend | Sin él, las fotos y los documentos se pierden en cada despliegue |
 | Frontend | Imagen desde `Dockerfile` del repo del frontend (`output: 'standalone'`) | `API_URL` = URL pública del backend con `/api/v1` |
-| Seed | Una vez, desde la consola del servicio del backend: `npx prisma db seed` | Las dos `SEED_REVIEWER_*` |
+| Seed | Una vez, desde la consola del servicio del backend: `npx prisma db seed` | Las seis `SEED_*` |
 
 ## Puntos que no hay que olvidar
 
 - **Secretos:** `.env.demo` está en `.gitignore`. Nunca subir `JWT_SECRET`, la
-  contraseña de la base ni la del revisor. En la plataforma se cargan como
+  contraseña de la base ni las de las cuentas del seed. En la plataforma se cargan como
   variables o secretos.
-- **`JWT_SECRET` y `SEED_REVIEWER_*` son obligatorias en producción:** el
-  backend no arranca sin `JWT_SECRET` y el seed falla a propósito sin las
-  credenciales del revisor (no se crea un revisor con contraseña por defecto).
+- **`JWT_SECRET` y las seis `SEED_*` son obligatorias en producción:** el
+  backend no arranca sin `JWT_SECRET` y el seed falla a propósito si falta
+  alguna credencial (no se crea ninguna cuenta con contraseña por defecto, ni
+  el `demo@example.com` del boilerplate).
 - **La contraseña de la base va sin codificar dentro de `DATABASE_URL`:** que
   sea alfanumérica (`openssl rand -hex 24`). Con `-base64` puede traer `/`, `+`
   o `=` y la URL queda inválida.
@@ -103,6 +104,6 @@ Lo que hay que configurar es lo mismo en todas:
 
 1. Anotar la URL del frontend en el README de los dos repositorios (sección
    del proyecto) y, si se deja abierto, la de Swagger.
-2. Pasar a la cátedra la cuenta del REVISOR por un canal privado, no en el
+2. Pasar a la cátedra las tres cuentas del seed por un canal privado, no en el
    README.
 3. Cerrar MP4-131 en Jira con la URL.

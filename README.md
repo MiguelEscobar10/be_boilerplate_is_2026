@@ -269,11 +269,16 @@ npm run db:reset
 
 ### Seed
 
-[prisma/seed.ts](prisma/seed.ts) crea un usuario de prueba mediante `upsert`, así que se puede correr las veces que haga falta:
+[prisma/seed.ts](prisma/seed.ts) crea una cuenta por rol mediante `upsert`, así que se puede correr las veces que haga falta. En desarrollo usa estos accesos:
 
-| Email | Contraseña |
-|---|---|
-| `demo@example.com` | `Demo1234!` |
+| Rol | Email | Contraseña |
+|---|---|---|
+| ARRENDADOR | `arrendador@example.com` | `Arrendador1234!` |
+| ARRENDATARIO | `arrendatario@example.com` | `Arrendatario1234!` |
+| REVISOR | `revisor@example.com` | `Revisor1234!` |
+| (sin perfil, del boilerplate) | `demo@example.com` | `Demo1234!` |
+
+En producción (`NODE_ENV=production`) no hay accesos por defecto: el seed exige `SEED_LANDLORD_*`, `SEED_TENANT_*` y `SEED_REVIEWER_*` (email y contraseña de cada una), no imprime las contraseñas y no crea `demo@example.com`. Ver [docs/despliegue.md](docs/despliegue.md).
 
 ---
 
