@@ -17,6 +17,7 @@ buscarlos, reservarlos, pagarlos (simulado), coordinar la entrega y calificar.
 - [05. Instalación local](docs/05-instalacion-local.md)
 - [06. Despliegue](docs/06-despliegue.md)
 - [07. Forma de trabajo](docs/07-forma-de-trabajo.md)
+- [08. Historias](docs/08-historias.md)
 - [09. Problemas conocidos](docs/09-problemas-conocidos.md)
 
 ## Integrantes
