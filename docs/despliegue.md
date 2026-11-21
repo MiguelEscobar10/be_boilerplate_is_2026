@@ -42,15 +42,20 @@ docker compose -f docker-compose.demo.yml --env-file .env.demo up -d --build
 
 ### Qué se probó
 
+Hoy el seed crea una cuenta por rol (ARRENDADOR, ARRENDATARIO y REVISOR,
+desde el PR #80). Las dos pruebas de abajo son anteriores a ese cambio: en
+esos commits el seed todavía creaba solo el REVISOR.
+
 **20 de noviembre de 2026**, con `main` del backend en `6d31f63`: en un
 PostgreSQL 18 alpine nuevo se aplican las 23 migraciones (incluidas
-`unaccent` y `pg_trgm`) y el seed crea el REVISOR.
+`unaccent` y `pg_trgm`) y el seed de ese commit crea el REVISOR.
 
 **19 de noviembre de 2026**
 
 con `main` del backend en `e82a9d7` y del frontend en `17687c6`:
 
-- El backend aplica las 20 migraciones al arrancar y el seed crea el REVISOR;
+- El backend aplica las 20 migraciones al arrancar y el seed de ese commit
+  crea el REVISOR;
   `POST /auth/login` del revisor responde 200.
 - Desde el frontend (puerto 8080): registro de un arrendador, publicación con
   una foto y la foto se ve en el detalle.
