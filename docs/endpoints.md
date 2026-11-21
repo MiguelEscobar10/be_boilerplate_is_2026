@@ -60,6 +60,8 @@ módulo en [`modulos/`](modulos/).
 | Pagos (M4) | POST | `/api/v1/reservas/{id}/deposito/resolucion` | ARRENDADOR | Resuelve la garantía y pasa la reserva a COMPLETADA (simulado) |
 | Pagos (M4) | GET | `/api/v1/reservas/{id}/deposito/resolucion` | con sesión | Consulta el estado de la garantía de una reserva propia |
 | Pagos (M4) | POST | `/api/v1/reservas/{id}/devolucion` | ARRENDADOR | Registra la devolución de una reserva EN_CURSO |
+| Reseñas (M6) | POST | `/api/v1/reservas/{id}/calificacion` | ARRENDATARIO | Califica el bien y al arrendador de una reserva COMPLETADA |
+| Reseñas (M6) | GET | `/api/v1/reservas/{id}/calificacion` | ARRENDATARIO | Consulta la calificación que dejaste en una reserva propia |
 | Pagos (M4) | GET | `/api/v1/reservas/{id}/devolucion` | con sesión | Consulta la devolución de una reserva propia |
 | Cuentas | POST | `/api/v1/users` | pública | Registra una cuenta de arrendador o arrendatario |
 | Verificación (M7) | PATCH | `/api/v1/publicaciones/{id}/requiere-verificacion` | ARRENDADOR | Activa o desactiva "requiere verificación" en una publicación propia |

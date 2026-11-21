@@ -169,6 +169,125 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/si_be_boilerplate_te
 npm run test:e2e
 ```
 
+## BE-17.1. Calificar el bien y al arrendador (MP4-90)
+
+El arrendatario califica el bien y a su arrendador cuando la reserva está
+`COMPLETADA` (H17). Usa la tabla `listing_landlord_ratings` de DB-17.1.
+
+```
+src/listing-ratings/
+  controllers/listing-ratings.controller.ts   POST /reservas/:id/calificacion
+  services/listing-ratings.service.ts         dueño, estado, respuesta y promedios
+  repositories/listing-rating.repository.ts   lectura de la reserva, inserción y promedios
+  errors/rating-errors.ts                     el 409 y el 422 con su `codigo`
+  dto/
+```
+
+Módulo `ListingRatingsModule`, alias `@ListingRatings`. Exporta
+`ListingRatingsService` para que BE-12.1 use `promedioCalificaciones`.
+
+### `POST /api/v1/reservas/{id}/calificacion`
+
+Solo rol `ARRENDATARIO`.
+
+```json
+{ "puntajeBien": 4, "puntajeArrendador": 5, "comentario": "Todo en orden" }
+```
+
+- `puntajeBien` y `puntajeArrendador`: enteros de 1 a 5, obligatorios. Un `"4"`
+  en texto o un `4.5` es 400.
+- `comentario`: opcional, hasta 500 caracteres. Se guarda recortado; si queda
+  vacío, sin comentario.
+
+Respuesta `201 { "id": "c0ffee00-..." }` (UUID; la ficha muestra un entero).
+
+| Estado | `codigo` | Cuándo |
+|---|---|---|
+| 201 | | Se guardó. El bien, el arrendador y el autor salen de la reserva, no del body. |
+| 400 | | Puntaje que falta, fuera de 1 a 5 o no entero; comentario de más de 500 caracteres o que no es texto; una propiedad de más; id que no es UUID. |
+| 401 | | Sin sesión. |
+| 403 | | La cuenta no es `ARRENDATARIO`. |
+| 404 | | La reserva no existe o es de otro arrendatario ("La reserva no existe."). |
+| 409 | `RESERVA_YA_CALIFICADA` | Ya fue calificada ("Ya calificaste esta reserva."). |
+| 422 | `RESERVA_NO_COMPLETADA` | No está `COMPLETADA` ("Solo puedes calificar una reserva COMPLETADA."). |
+
+### `GET /api/v1/reservas/{id}/calificacion`
+
+Solo rol `ARRENDATARIO`. Devuelve la calificación que dejó en su reserva, para
+que el frontend sepa si ya calificó (FE-17.1 oculta «Calificar» si existe). No
+está en la ficha de BE-17.1: se agregó porque FE-17.1 pide ocultar la acción en
+las reservas ya calificadas.
+
+```json
+{
+  "id": "c0ffee00-...",
+  "reservaId": "3f2b8c1e-...",
+  "puntajeBien": 4,
+  "puntajeArrendador": 5,
+  "comentario": "Todo en orden",
+  "fechaRegistro": "2026-11-12T16:00:00.000Z"
+}
+```
+
+| Estado | `codigo` | Cuándo |
+|---|---|---|
+| 200 | | La reserva es del usuario y está calificada. |
+| 400 / 401 / 403 | | Id que no es UUID / sin sesión / la cuenta no es `ARRENDATARIO`. |
+| 404 | | La reserva no existe o es de otro arrendatario. Mismo mensaje en los dos casos, sin `codigo`. |
+| 404 | `CALIFICACION_NO_REGISTRADA` | La reserva es del usuario y todavía no la calificó. |
+
+El `codigo` solo sale cuando el usuario es dueño, así que no revela si una
+reserva ajena está calificada.
+
+### `promedioCalificaciones(publicacionId)`
+
+Método de `ListingRatingsService`, para BE-12.1 (detalle de la publicación):
+
+```ts
+{ promedioBien: number | null, promedioArrendador: number | null }
+```
+
+- `promedioBien`: promedio de las calificaciones de esa publicación.
+- `promedioArrendador`: promedio de **todas** las calificaciones del dueño de
+  esa publicación (de todos sus bienes).
+- Con un decimal, redondeado en la base (`ROUND` sobre `numeric`, que sube la
+  mitad: 4.25 → 4.3). Ver la sección Promedios de DB-17.1.
+- `null` si no hay calificaciones; si la publicación no existe, los dos son
+  `null`.
+
+Falta que BE-12.1 lo llame: este PR no toca el detalle de la publicación, que
+es de otra task.
+
+### Decisiones
+
+- **Una reserva ajena es 404, no 403**, como en BE-18.1. El dueño se revisa
+  antes que el estado, así una reserva ajena sin terminar tampoco da pistas
+  (404, no 422).
+- **El 409 lo da el índice único de DB-17.1**, no una consulta previa. Con dos
+  envíos a la vez pasa uno y el otro recibe 409 (hay prueba).
+- **Una sola calificación por reserva con los dos puntajes.** No se puede
+  calificar solo el bien o solo al arrendador: la ficha y la tabla piden los
+  dos.
+- **Sin aviso al arrendador.** La historia y el contrato del servicio de
+  avisos no lo piden.
+- **Consulta propia en vez de un campo en la reserva.** Saber si ya calificó
+  no cambia `GET /reservas/{id}` (BE-03.1): se consulta con
+  `GET /reservas/{id}/calificacion`.
+
+### Pruebas
+
+- **Unitarias**
+  ([`listing-ratings.service.spec.ts`](../../src/listing-ratings/services/listing-ratings.service.spec.ts),
+  `npm test`): lo que se guarda, comentario vacío como `null`, 404 por
+  inexistente y por ajena con el mismo texto, 422 en cada estado, el 409, los
+  errores que se propagan y los promedios.
+- **E2e** ([`test/listing-ratings.e2e-spec.ts`](../../test/listing-ratings.e2e-spec.ts),
+  `npm run test:e2e`): la app completa contra la base `_test`. Lo guardado,
+  extremos, comentario recortado y vacío, los 12 casos de 400, el 422 en cada
+  estado, el 409 y dos envíos a la vez, los dos 404 con el mismo cuerpo, 401 y
+  403; y los promedios (sin calificaciones, por publicación y por arrendador,
+  sin mezclar arrendadores, redondeo de .05 y publicación inexistente).
+
 ## DB-18.1. Calificación del arrendatario (MP4-93)
 
 Lo que el arrendador opina del arrendatario de una reserva (H18): un puntaje de

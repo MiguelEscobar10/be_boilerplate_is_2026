@@ -16,6 +16,7 @@ import { ReportsModule } from '@Reports';
 import { ReservationDecisionsModule } from '@ReservationDecisions';
 import { ReservationsModule } from '@Reservations';
 import { ReturnsModule } from '@Returns';
+import { ListingRatingsModule } from '@ListingRatings';
 import { TenantRatingsModule } from '@TenantRatings';
 import { UsersModule } from '@Users';
 import { VerificationModule } from '@Verification';
@@ -45,6 +46,7 @@ import { validateEnv } from '@Config';
     ReservationDecisionsModule,
     IncomeModule,
     ReportsModule,
+    ListingRatingsModule,
     TenantRatingsModule,
   ],
   providers: [
