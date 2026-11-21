@@ -341,3 +341,63 @@ Ejemplo:
 (29 pruebas): cada filtro por separado, combinados, con paginación, inactivas,
 fechas disponibles con reservas en cada estado y bloqueos, los extremos del
 rango y los 400.
+
+## DB-12.1. Consultas del detalle de publicación (MP4-36)
+
+El detalle completo (H12) muestra la publicación con sus fotos en orden y los
+promedios de calificaciones. Esta task deja verificado que la base ya responde
+esas consultas rápido. **No agrega migración**: los índices que hacen falta ya
+existen.
+
+| Qué pide el detalle | Con qué se resuelve | De dónde viene |
+|---|---|---|
+| Fotos en orden | Índice único `listing_images_listing_id_position_key` sobre `(listing_id, position)`. Entrega las fotos ya ordenadas, sin ordenar aparte. | DB-01.1 |
+| Promedio del bien | `listing_landlord_ratings_listing_id_idx` sobre `(listing_id)` | DB-17.1 |
+| Promedio del arrendador | `listing_landlord_ratings_landlord_id_idx` sobre `(landlord_id)` | DB-17.1 |
+| Excluir desactivadas | Clave primaria `listings_pkey` sobre `(id)` y el filtro `is_active` en esa misma fila | DB-01.1 |
+
+### La consulta
+
+```sql
+SELECT
+  l.*,
+  (SELECT ROUND(AVG(r.listing_score)::numeric, 1)
+     FROM listing_landlord_ratings r
+    WHERE r.listing_id = l.id)           AS promedio_bien,
+  (SELECT ROUND(AVG(r.landlord_score)::numeric, 1)
+     FROM listing_landlord_ratings r
+    WHERE r.landlord_id = l.landlord_id) AS promedio_arrendador,
+  (SELECT COUNT(*)
+     FROM listing_landlord_ratings r
+    WHERE r.listing_id = l.id)           AS total_calificaciones
+FROM listings l
+WHERE l.id = :id AND l.is_active;
+
+SELECT position, path FROM listing_images
+WHERE listing_id = :id ORDER BY position;
+```
+
+- El promedio del bien es de esa publicación; el del arrendador junta las
+  calificaciones de **todas** sus publicaciones.
+- Sin calificaciones, `AVG` devuelve `NULL` y el total es `0`.
+- Una publicación desactivada o que no existe no devuelve fila.
+
+### Decisiones
+
+- **Sin índice `(id, is_active)`.** La ficha pide verificarlo. `id` es la clave
+  primaria, así que la búsqueda ya llega a una sola fila y `is_active` se
+  revisa ahí mismo; un índice compuesto no ahorraría nada.
+- **Sin índice nuevo para las fotos.** El `(listing_id, position)` que pide la
+  ficha ya existe desde DB-01.1 como índice único.
+- **Los promedios no se guardan.** Se calculan de `listing_landlord_ratings`
+  cada vez, sin columnas en `listings` ni en `users`, como define DB-17.1
+  ([resenas](resenas.md)). La regla de redondeo es la de esa sección.
+
+### Prueba
+
+[`test/listings.detail.constraints.e2e-spec.ts`](../../test/listings.detail.constraints.e2e-spec.ts)
+(9 pruebas): fotos en orden y uso del índice sin ordenar aparte, promedios
+con un decimal por publicación y por arrendador, `NULL` sin calificaciones,
+que una calificación nueva no toca la publicación, que no hay columnas de
+promedio guardadas, uso de los dos índices de calificaciones y exclusión de
+las desactivadas por la clave primaria.
