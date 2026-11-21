@@ -27,6 +27,14 @@ import { createTestPrismaClient } from '../helpers/test-database.js';
  * Usuarios: A (arrendador), T (arrendatario) y X (un tercero, arrendatario).
  * Corre en paralelo con otros archivos: solo mira a sus propios usuarios
  * (email con un tag único) y borra lo que creó, de abajo hacia arriba.
+ *
+ * El servidor HTTP se levanta una sola vez, en 127.0.0.1, y todas las
+ * peticiones van a esa URL. Con `request(app.getHttpServer())` supertest
+ * levanta y cierra un servidor por petición en `::`; C11 falló una vez con un
+ * 404 que no se pudo reproducir, y la hipótesis (no demostrada) es que, al
+ * quedar libre el puerto entre peticiones, otro proceso local escuchando en
+ * 127.0.0.1 en ese puerto recibió la petición. Escuchar en 127.0.0.1 durante
+ * todo el archivo evita que el puerto se libere o se comparta.
  */
 const prisma = createTestPrismaClient();
 const pasarela: PasarelaConfig = { retardoMs: 0 };
@@ -56,8 +64,10 @@ describe('QA-10.1: avisos, lectura y privacidad de la bandeja', () => {
   let X: Usuario;
   let listingId: string;
   let semana = 0;
+  /** `http://127.0.0.1:<puerto>` del servidor levantado en beforeAll. */
+  let baseUrl: string;
 
-  const http = () => request(app.getHttpServer());
+  const http = () => request(baseUrl);
   const auth = (u: Usuario) => ({ Authorization: `Bearer ${u.token}` });
 
   // --- La bandeja vista por cada usuario ----------------------------------
@@ -186,6 +196,10 @@ describe('QA-10.1: avisos, lectura y privacidad de la bandeja', () => {
       }),
     );
     await app.init();
+    // Un solo servidor para todo el archivo, solo en 127.0.0.1 (ver arriba).
+    await app.listen(0, '127.0.0.1');
+    const { port } = app.getHttpServer().address() as { port: number };
+    baseUrl = `http://127.0.0.1:${port}`;
 
     const jwt = app.get(JwtService);
     const crear = async (
