@@ -14,7 +14,7 @@ Trabajo que no estaba en las historias, pero que las demás necesitan: cuentas p
 | H00 | Seed con una cuenta por rol (arrendador, arrendatario y revisor) | Lee Fuentes | [MP4-125](https://mmitas-puebla-proyecto4.atlassian.net/browse/MP4-125) | [BE #80](https://github.com/MiguelEscobar10/be_boilerplate_is_2026/pull/80) | Terminada |
 | H00 | Manejo de estado del frontend: decisión y documentación | Lee Fuentes | [MP4-129](https://mmitas-puebla-proyecto4.atlassian.net/browse/MP4-129) | [FE #17](https://github.com/MiguelEscobar10/fe_boilerplate_is_2026/pull/17) | Terminada |
 | H00 | README del backend y del frontend: integrantes, roles, diagramas y decisiones | Lee Fuentes | [MP4-130](https://mmitas-puebla-proyecto4.atlassian.net/browse/MP4-130) | [BE #58](https://github.com/MiguelEscobar10/be_boilerplate_is_2026/pull/58), [FE #18](https://github.com/MiguelEscobar10/fe_boilerplate_is_2026/pull/18) | Terminada |
-| H00 | Despliegue de la demo: imágenes de Docker, Render y datos del despliegue | Lee Fuentes | [MP4-131](https://mmitas-puebla-proyecto4.atlassian.net/browse/MP4-131) | [BE #59](https://github.com/MiguelEscobar10/be_boilerplate_is_2026/pull/59), [FE #19](https://github.com/MiguelEscobar10/fe_boilerplate_is_2026/pull/19), [BE #83](https://github.com/MiguelEscobar10/be_boilerplate_is_2026/pull/83) | Terminada (los datos del despliegue en `06`, PR #83, están en revisión) |
+| H00 | Despliegue de la demo: imágenes de Docker, Render y datos del despliegue | Lee Fuentes | [MP4-131](https://mmitas-puebla-proyecto4.atlassian.net/browse/MP4-131) | [BE #59](https://github.com/MiguelEscobar10/be_boilerplate_is_2026/pull/59), [FE #19](https://github.com/MiguelEscobar10/fe_boilerplate_is_2026/pull/19), [BE #83](https://github.com/MiguelEscobar10/be_boilerplate_is_2026/pull/83) | Terminada |
 
 ## Módulo 1: Catálogo de propiedades/equipo
 
@@ -86,5 +86,5 @@ Trabajo que no estaba en las historias, pero que las demás necesitan: cuentas p
 ## Resumen
 
 - Historias: 22 de 22 terminadas (H01 a H22), con las 91 tasks de las historias fusionadas.
-- Módulo 0: cuentas por rol, seed, decisión de estado, README y despliegue fusionados; queda en revisión el PR #83 de `06-despliegue.md`.
+- Módulo 0: cuentas por rol, seed, decisión de estado, README y despliegue fusionados.
 - Historias pendientes: ninguna.
