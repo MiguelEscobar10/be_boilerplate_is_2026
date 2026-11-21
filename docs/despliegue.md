@@ -1,8 +1,11 @@
 # Despliegue de la demo (MP4-131)
 
 Cómo publicar la demo completa: base de datos, backend y frontend. La
-configuración está probada con Docker. Falta elegir dónde alojarla y anotar
-la URL en el README.
+configuración está probada con Docker. La demo publicada corre en Render:
+frontend en https://mp4-frontend.onrender.com y backend en
+https://mp4-backend-4ua0.onrender.com/api/v1 (Swagger en `/api/docs`). Los
+detalles y las limitaciones del plan están en
+[06-despliegue.md](06-despliegue.md).
 
 ## Opción 1: una máquina con Docker (VPS o la de la cátedra)
 
@@ -42,15 +45,20 @@ docker compose -f docker-compose.demo.yml --env-file .env.demo up -d --build
 
 ### Qué se probó
 
+Hoy el seed crea una cuenta por rol (ARRENDADOR, ARRENDATARIO y REVISOR,
+desde el PR #80). Las dos pruebas de abajo son anteriores a ese cambio: en
+esos commits el seed todavía creaba solo el REVISOR.
+
 **20 de noviembre de 2026**, con `main` del backend en `6d31f63`: en un
 PostgreSQL 18 alpine nuevo se aplican las 23 migraciones (incluidas
-`unaccent` y `pg_trgm`) y el seed crea el REVISOR.
+`unaccent` y `pg_trgm`) y el seed de ese commit crea el REVISOR.
 
 **19 de noviembre de 2026**
 
 con `main` del backend en `e82a9d7` y del frontend en `17687c6`:
 
-- El backend aplica las 20 migraciones al arrancar y el seed crea el REVISOR;
+- El backend aplica las 20 migraciones al arrancar y el seed de ese commit
+  crea el REVISOR;
   `POST /auth/login` del revisor responde 200.
 - Desde el frontend (puerto 8080): registro de un arrendador, publicación con
   una foto y la foto se ve en el detalle.
@@ -100,10 +108,11 @@ Lo que hay que configurar es lo mismo en todas:
   La cookie de sesión se marca `secure` en producción, así que **el frontend
   necesita HTTPS** para que el login funcione fuera de `localhost`.
 
-## Cuando esté publicada
+## Después de publicarla
 
-1. Anotar la URL del frontend en el README de los dos repositorios (sección
-   del proyecto) y, si se deja abierto, la de Swagger.
+La URL de la demo y la de Swagger ya están en el README de este repositorio y
+MP4-131 está cerrada en Jira. Queda:
+
+1. Anotar la URL de la demo en el README del frontend.
 2. Pasar a la cátedra las tres cuentas del seed por un canal privado, no en el
    README.
-3. Cerrar MP4-131 en Jira con la URL.

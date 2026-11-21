@@ -11,6 +11,7 @@
 | [05-instalacion-local.md](05-instalacion-local.md) | Requisitos, pasos, variables de entorno y pruebas (bases `_test`) |
 | [06-despliegue.md](06-despliegue.md) | Dónde está desplegado, cómo se publica una versión y variables de producción |
 | [07-forma-de-trabajo.md](07-forma-de-trabajo.md) | Tablero de Jira, ramas, commits y pull requests |
+| [08-historias.md](08-historias.md) | Las 22 historias y el Módulo 0, con responsable, tarjetas de Jira, PRs y estado |
 | [09-problemas-conocidos.md](09-problemas-conocidos.md) | Problemas verificados, cómo se reproducen y su impacto |
 
 ## Documentación técnica
