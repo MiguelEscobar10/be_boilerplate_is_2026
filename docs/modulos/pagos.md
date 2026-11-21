@@ -366,6 +366,122 @@ npx vitest run --config ./vitest.config.e2e.ts test/payments.pagos-simulados.e2e
 En el paso 2, no dejes `DATABASE_URL` apuntando a la base `_test`: el helper
 le agregaría otro `_test`.
 
+## DB-06.1. Consulta del último pago por reserva (MP4-68)
+
+Consulta que usará BE-06.1 para devolver el estado del pago (historia H06).
+**No agrega migración, tablas, columnas ni índices**: el índice que pide la
+task ya lo creó DB-05.1 y aquí solo se verifica y se documenta su reutilización.
+
+### Consulta
+
+```sql
+SELECT * FROM simulated_payments
+WHERE reservation_id = $1
+ORDER BY created_at DESC, id DESC
+LIMIT 1;
+```
+
+En Prisma:
+
+```ts
+prisma.simulatedPayment.findFirst({
+  where: { reservationId },
+  orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+});
+```
+
+- Con varios intentos devuelve el más reciente.
+- Con cero intentos no devuelve ninguna fila (`null`).
+- Si dos intentos tuvieran el mismo `created_at`, `id DESC` desempata, así que
+  el resultado es siempre el mismo.
+
+### Índice
+
+Reutiliza `simulated_payments_reservation_id_created_at_id_idx`
+`(reservation_id, created_at DESC, id DESC)` de DB-05.1. El orden del índice
+coincide con el `ORDER BY`, así que Postgres lee una sola entrada, sin `Sort`.
+No se crea otro índice igual.
+
+### Prueba
+
+[`test/payments.latest-payment.e2e-spec.ts`](../../test/payments.latest-payment.e2e-spec.ts)
+comprueba: varios intentos, cero intentos, que no se mezclen pagos de otra
+reserva, el desempate por `id`, que exista un solo índice con esas columnas y
+que `EXPLAIN` lo use sin `Sort`. Para el `EXPLAIN` desactiva el recorrido
+secuencial dentro de una transacción (`SET LOCAL enable_seqscan = off`), porque
+con pocas filas el planificador lo prefiere.
+
+## BE-06.1. Consulta protegida del estado de pago (MP4-69)
+
+Endpoint para que el arrendatario vea el último intento de pago de su reserva
+(historia H06). Vive en `PaymentsModule`, junto al pago de BE-05.1.
+
+### Endpoint
+
+`GET /api/v1/reservas/{id}/pagos/ultimo`, sin body. Solo rol `ARRENDATARIO`, y
+solo la reserva del arrendatario que pregunta. Está en Swagger (etiqueta
+`pagos`).
+
+**200:**
+
+```json
+{
+  "pagoId": "8c0d9a3e-1f2b-4c5d-9e8f-7a6b5c4d3e2f",
+  "reservaId": "3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b",
+  "montoTotal": "65.00",
+  "fechaRegistro": "2026-11-12T16:00:00.000Z",
+  "estado": "APROBADO",
+  "simulado": true
+}
+```
+
+- `montoTotal` es un string con 2 decimales, igual que en el pago (BE-05.1).
+  La ficha de Jira lo muestra como número (`65.00`); se mantiene el string
+  para no perder precisión y el frontend lo convierte para mostrarlo.
+- `fechaRegistro` es el `created_at` del intento, en UTC (ISO 8601).
+- `estado` es `PENDIENTE`, `APROBADO` o `RECHAZADO`. `PENDIENTE` solo se ve
+  mientras la pasarela espera su respuesta.
+- `motivo` aparece solo si es `RECHAZADO`, igual que en BE-05.1. Es un campo
+  extra a la ficha.
+- `pagoId` y `reservaId` son UUID, no enteros.
+
+### Errores
+
+| Código | `codigo` | Cuándo |
+|---|---|---|
+| 400 | — | `{id}` no es un UUID. |
+| 401 | — | Sin token, token inválido o cuenta inactiva. |
+| 403 | — | El rol no es `ARRENDATARIO`. |
+| 404 | — | La reserva no existe o es de otro arrendatario. Mismo mensaje en los dos casos, sin `codigo`. |
+| 404 | `PAGO_NO_REGISTRADO` | La reserva es del usuario pero todavía no tiene ningún intento. |
+
+El `codigo` solo se devuelve cuando el usuario es dueño de la reserva, así que
+la respuesta no revela si una reserva ajena tiene o no pagos.
+
+### Reglas
+
+- **Último intento:** el de `created_at DESC, id DESC`, con el índice de
+  [DB-06.1](#db-061-consulta-del-último-pago-por-reserva-mp4-68).
+- **Sin caché.** Cada petición consulta la base, así que un intento nuevo se ve
+  en la consulta siguiente.
+- **Una sola consulta** busca la reserva del usuario y su último intento, de
+  modo que "ajena" e "inexistente" son el mismo caso.
+- Los permisos son solo del arrendatario: el arrendador no consulta pagos de
+  sus reservas aquí (la ficha habla del usuario dueño de la reserva).
+
+### Pruebas
+
+- **Unitarias:** [`ultimo-pago.spec.ts`](../../src/payments/services/ultimo-pago.spec.ts)
+  (campos, motivo, 404 sin `codigo`, `PAGO_NO_REGISTRADO`).
+- **E2e:** [`test/payments.ultimo-pago.e2e-spec.ts`](../../test/payments.ultimo-pago.e2e-spec.ts):
+  pago aprobado con todos los campos, varios intentos, rechazo con motivo,
+  intento nuevo sin caché, sin pagos, reserva ajena (con y sin pagos) igual a
+  inexistente, 403 para el arrendador, 401 y 400.
+
+```bash
+npx vitest run --config ./vitest.config.e2e.ts test/payments.ultimo-pago.e2e-spec.ts
+```
+
 ## DB-21.1. Consulta de ingresos por bien (MP4-115)
 
 Consulta que usará BE-21.1 para el reporte de ingresos del arrendador

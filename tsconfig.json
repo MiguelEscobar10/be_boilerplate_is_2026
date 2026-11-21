@@ -57,6 +57,8 @@
       "@Deliveries/*": ["./src/deliveries/*/index.ts"],
       "@Returns": ["./src/returns/index.ts"],
       "@Returns/*": ["./src/returns/*/index.ts"],
+      "@Reservations": ["./src/reservations/index.ts"],
+      "@Reservations/*": ["./src/reservations/*/index.ts"],
       "@ReservationDecisions": ["./src/reservation-decisions/index.ts"],
       "@ReservationDecisions/*": ["./src/reservation-decisions/*/index.ts"],
       "@Income": ["./src/income/index.ts"],

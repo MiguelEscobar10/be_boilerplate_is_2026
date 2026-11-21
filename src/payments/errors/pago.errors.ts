@@ -19,7 +19,8 @@ export type CodigoErrorPago =
   | 'RESERVA_NO_CONFIRMADA'
   | 'PAGO_YA_APROBADO'
   | 'PAGO_EN_PROCESO'
-  | 'INTENTOS_AGOTADOS';
+  | 'INTENTOS_AGOTADOS'
+  | 'PAGO_NO_REGISTRADO';
 
 const MENSAJES: Record<CodigoErrorPago, string> = {
   TARJETA_NO_VALIDA:
@@ -29,6 +30,7 @@ const MENSAJES: Record<CodigoErrorPago, string> = {
   PAGO_EN_PROCESO:
     'Ya hay un pago en proceso para esta reserva. Espera su resultado.',
   INTENTOS_AGOTADOS: 'Ya se usaron los 3 intentos de pago de esta reserva.',
+  PAGO_NO_REGISTRADO: 'Aún no hay un pago registrado para esta reserva.',
 };
 
 /** Mensaje del 404: igual si la reserva no existe o es de otro usuario. */
@@ -44,7 +46,7 @@ export function tarjetaNoValida(): BadRequestException {
 }
 
 export function conflictoPago(
-  codigo: Exclude<CodigoErrorPago, 'TARJETA_NO_VALIDA'>,
+  codigo: Exclude<CodigoErrorPago, 'TARJETA_NO_VALIDA' | 'PAGO_NO_REGISTRADO'>,
 ): ConflictException {
   return new ConflictException({
     statusCode: 409,
@@ -56,4 +58,18 @@ export function conflictoPago(
 
 export function reservaNoEncontrada(): NotFoundException {
   return new NotFoundException(RESERVA_NO_ENCONTRADA);
+}
+
+/**
+ * 404 de BE-06.1: la reserva es del usuario pero todavía no tiene ningún
+ * intento de pago. Es el único 404 con `codigo`: si la reserva no existe o es
+ * de otro, se usa `reservaNoEncontrada()` para no revelar nada.
+ */
+export function pagoNoRegistrado(): NotFoundException {
+  return new NotFoundException({
+    statusCode: 404,
+    message: MENSAJES.PAGO_NO_REGISTRADO,
+    error: 'Not Found',
+    codigo: 'PAGO_NO_REGISTRADO',
+  });
 }

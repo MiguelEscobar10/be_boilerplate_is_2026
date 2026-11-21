@@ -40,13 +40,21 @@ siempre traen el rol que eligieron al registrarse (BE-00.1).
 | `nombre` | `name` | `name` |
 | `telefono` | `phone` | `phone` |
 
-### Usuario REVISOR
+### Una cuenta por rol (seed)
 
-No se puede registrar por la API. `npm run db:seed` lo crea (o lo actualiza)
-con `revisor@example.com / Revisor1234!`, o con `SEED_REVIEWER_EMAIL` y
-`SEED_REVIEWER_PASSWORD` si están definidas. En la demo desplegada
-(`NODE_ENV=production`) esas dos variables son obligatorias: si faltan, el
-seed se detiene para no publicar una contraseña conocida.
+`npm run db:seed` crea (o actualiza) una cuenta de cada rol, con su perfil:
+
+| Rol | Por defecto | Variables |
+|---|---|---|
+| ARRENDADOR | `arrendador@example.com / Arrendador1234!` | `SEED_LANDLORD_EMAIL`, `SEED_LANDLORD_PASSWORD` |
+| ARRENDATARIO | `arrendatario@example.com / Arrendatario1234!` | `SEED_TENANT_EMAIL`, `SEED_TENANT_PASSWORD` |
+| REVISOR | `revisor@example.com / Revisor1234!` | `SEED_REVIEWER_EMAIL`, `SEED_REVIEWER_PASSWORD` |
+
+El REVISOR no se puede registrar por la API: solo existe por el seed. Si la
+cuenta ya existe, el seed le asegura el rol pero no le cambia la contraseña.
+En la demo desplegada (`NODE_ENV=production`) las seis variables son
+obligatorias: si falta alguna, el seed se detiene para no publicar una
+contraseña conocida.
 
 ### Prueba de restricciones
 
