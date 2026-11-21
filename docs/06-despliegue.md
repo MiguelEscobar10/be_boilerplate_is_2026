@@ -34,9 +34,9 @@ PostgreSQL 18 administrada y, si el plan lo permite, un disco persistente en
 
 ## Cómo se publica una nueva versión
 
-Procedimiento acordado para la versión 1.0.0. **Todavía no se ha hecho**: no
-existen la rama `release/1.0.0`, la etiqueta `v1.0.0` ni el release en
-ninguno de los dos repositorios.
+La versión 1.0.0 se publica siguiendo este procedimiento: rama
+`release/1.0.0`, PR hacia `main`, etiqueta `v1.0.0` y release en GitHub, en
+cada uno de los dos repositorios.
 
 1. En cada repositorio (backend y frontend), crear `release/1.0.0` desde
    `main` actualizado, abrir un PR de `release/1.0.0` hacia `main` con

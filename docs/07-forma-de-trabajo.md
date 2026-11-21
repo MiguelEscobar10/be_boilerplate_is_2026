@@ -23,8 +23,9 @@ No usamos Git Flow completo ni rama `develop`: todo se integra directo en
   `test/MP4-110-QA-10.1-validar-avisos-lectura-y-privacidad`.
 - `docs/...`: algunos cambios de documentación (por ejemplo
   `docs/MP4-130-readme-y-documentacion`).
-- No hubo ramas `release/*` ni `hotfix/*`. La primera `release/1.0.0` está
-  descrita como procedimiento en [despliegue](06-despliegue.md).
+- Durante el desarrollo no hubo ramas `release/*` ni `hotfix/*`. La versión
+  1.0.0 se publica con la rama `release/1.0.0`, siguiendo el procedimiento de
+  [despliegue](06-despliegue.md#cómo-se-publica-una-nueva-versión).
 
 ## Commits
 
