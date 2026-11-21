@@ -39,20 +39,22 @@ en el [README](../README.md).
      ```
 
 4. Cargar los datos semilla: `npm run db:seed` (con todo en Docker:
-   `docker compose exec api npx prisma db seed`). Es idempotente. Hoy, en
-   `main`, crea:
+   `docker compose exec api npx prisma db seed`). Es idempotente: si una
+   cuenta ya existe, le asegura el rol pero no le cambia la contraseña. Crea
+   una cuenta por rol ([`prisma/seed.ts`](../prisma/seed.ts)):
 
    | Cuenta | Rol | Contraseña en desarrollo |
    |---|---|---|
+   | `arrendador@example.com` (o `SEED_LANDLORD_EMAIL`) | ARRENDADOR | `Arrendador1234!` (o `SEED_LANDLORD_PASSWORD`) |
+   | `arrendatario@example.com` (o `SEED_TENANT_EMAIL`) | ARRENDATARIO | `Arrendatario1234!` (o `SEED_TENANT_PASSWORD`) |
    | `revisor@example.com` (o `SEED_REVIEWER_EMAIL`) | REVISOR | `Revisor1234!` (o `SEED_REVIEWER_PASSWORD`) |
-   | `demo@example.com` | ARRENDATARIO (rol por defecto) | `Demo1234!` |
 
-   Las cuentas de ARRENDADOR y ARRENDATARIO se crean desde las pantallas de
-   registro. [PENDIENTE: el PR #80 (MP4-125, de Lee) hace que el seed cree
-   también `arrendador@example.com` y `arrendatario@example.com` y deje de
-   crear `demo@example.com` en producción; actualizar esta tabla cuando se
-   fusione]. En producción (`NODE_ENV=production`) las credenciales vienen de
-   variables y son obligatorias.
+   En producción (`NODE_ENV=production`) no hay accesos por defecto: el seed
+   exige `SEED_LANDLORD_*`, `SEED_TENANT_*` y `SEED_REVIEWER_*` (email y
+   contraseña de cada una), falla si falta alguna y no imprime las
+   contraseñas. En desarrollo también crea el usuario `demo@example.com` que
+   trae el boilerplate (sin perfil); no es una cuenta del proyecto y no se
+   crea en producción.
 5. Levantar el frontend en otra terminal:
 
    ```bash
@@ -86,6 +88,10 @@ un `JWT_SECRET` de 32 caracteres o más, no arranca.
 | `REFRESH_TOKEN_EXPIRES_IN_DAYS` | Vigencia del refresh token, en días | `7` |
 | `BCRYPT_SALT_ROUNDS` | Costo de bcrypt para las contraseñas | `12` |
 | `UPLOADS_DIR` | Carpeta de fotos y documentos (no se versiona) | `./uploads` |
+| `SEED_LANDLORD_EMAIL` | Opcional en desarrollo, obligatoria en producción. Correo del ARRENDADOR que crea el seed | `arrendador@example.com` |
+| `SEED_LANDLORD_PASSWORD` | Opcional en desarrollo, obligatoria en producción. Contraseña de ese ARRENDADOR | `Arrendador1234!` |
+| `SEED_TENANT_EMAIL` | Opcional en desarrollo, obligatoria en producción. Correo del ARRENDATARIO que crea el seed | `arrendatario@example.com` |
+| `SEED_TENANT_PASSWORD` | Opcional en desarrollo, obligatoria en producción. Contraseña de ese ARRENDATARIO | `Arrendatario1234!` |
 | `SEED_REVIEWER_EMAIL` | Opcional en desarrollo, obligatoria en producción. Correo del REVISOR que crea el seed | `revisor@example.com` |
 | `SEED_REVIEWER_PASSWORD` | Opcional en desarrollo, obligatoria en producción. Contraseña de ese REVISOR | `Revisor1234!` |
 

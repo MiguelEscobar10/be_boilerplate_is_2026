@@ -53,7 +53,7 @@ ninguno de los dos repositorios.
 | `JWT_SECRET` | Backend. `.env.demo` o las variables o secretos de la plataforma |
 | `JWT_EXPIRES_IN`, `REFRESH_TOKEN_EXPIRES_IN_DAYS`, `BCRYPT_SALT_ROUNDS` | Backend, opcionales. `.env.demo` o la plataforma |
 | `UPLOADS_DIR` (`/app/uploads`) | Backend. Ya la fija `docker-compose.demo.yml`; en una plataforma, en sus variables |
-| `SEED_REVIEWER_EMAIL`, `SEED_REVIEWER_PASSWORD` | Backend, obligatorias para el seed. `.env.demo` o la plataforma |
+| `SEED_LANDLORD_EMAIL`, `SEED_LANDLORD_PASSWORD`, `SEED_TENANT_EMAIL`, `SEED_TENANT_PASSWORD`, `SEED_REVIEWER_EMAIL`, `SEED_REVIEWER_PASSWORD` | Backend, obligatorias para el seed (una cuenta por rol). `.env.demo` o la plataforma |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Base de la demo con Docker. `.env.demo` |
 | `API_PORT`, `WEB_PORT`, `FRONTEND_DIR` | Demo con Docker. `.env.demo` |
 | `API_URL` | Frontend. La fija `docker-compose.demo.yml` (`http://api:3000/api/v1`); en una plataforma, la URL pública del backend con `/api/v1` |
