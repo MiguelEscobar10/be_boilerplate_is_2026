@@ -10,6 +10,10 @@ Las rutas de esta guía son las del frontend
 El detalle técnico de cada flujo está en el documento de su módulo en
 [`modulos/`](modulos/).
 
+Las capturas se tomaron el 20 de noviembre de 2026 con `main` de los dos
+repositorios, las cuentas del seed y datos de ejemplo (las fotos de las
+publicaciones son ilustraciones). Están en [`img/guia/`](img/guia/).
+
 ## Roles
 
 | Rol | Qué puede hacer |
@@ -65,6 +69,15 @@ frontend esas pantallas todavía piden sesión (ver
 4. Las siguientes veces se entra desde `/login` con correo y contraseña.
    «Cerrar sesión» está en el encabezado.
 
+![Pantalla de inicio de sesión](img/guia/01-login.png)
+*Inicio de sesión, con los enlaces para registrarse.*
+
+![Formulario de registro de arrendatario](img/guia/02-registro.png)
+*Registro de arrendatario.*
+
+![Inicio de un arrendador con sus accesos](img/guia/03-inicio-arrendador.png)
+*El inicio de un arrendador, con sus accesos y la campana de avisos.*
+
 ### Módulo 1: Catálogo
 
 #### Publicar un equipo o espacio (H01)
@@ -80,6 +93,9 @@ frontend esas pantallas todavía piden sesión (ver
 5. Al guardarse, se abre el detalle de la publicación con el aviso de que
    quedó registrada.
 
+![Formulario para publicar un equipo o espacio](img/guia/04-publicar.png)
+*Formulario de publicación con los datos y la foto de portada.*
+
 #### Ver el detalle de una publicación (H12)
 
 1. Desde el catálogo, abrir una tarjeta (`/publicaciones/{id}`).
@@ -87,6 +103,9 @@ frontend esas pantallas todavía piden sesión (ver
    depósito, condiciones y los promedios de calificaciones.
 3. Debajo están la disponibilidad con el formulario de solicitud, «Bloquear
    fechas» (solo para el dueño) y «Contactar al arrendador».
+
+![Detalle de una publicación](img/guia/05-detalle.png)
+*Detalle de un espacio: fotos, tarifa, depósito, condiciones, calificaciones y disponibilidad.*
 
 ### Módulo 2: Búsqueda y filtros
 
@@ -102,6 +121,9 @@ frontend esas pantallas todavía piden sesión (ver
    todos con «Limpiar filtros».
 5. Los resultados se recorren de 12 en 12 con «Anterior» y «Siguiente».
 
+![Catálogo con filtros aplicados](img/guia/06-busqueda.png)
+*Catálogo con los filtros «Tipo: Equipo» y «Precio: hasta $40» aplicados.*
+
 ### Módulo 3: Reservas y disponibilidad
 
 #### Bloquear fechas de un bien propio (H14)
@@ -111,6 +133,9 @@ frontend esas pantallas todavía piden sesión (ver
 2. Elegir el rango en el calendario y, si se quiere, escribir el motivo.
 3. Guardar. El bloqueo aparece en la lista y esas fechas salen ocupadas para
    los demás.
+
+![Pantalla para bloquear fechas](img/guia/07-bloqueos.png)
+*Bloquear fechas: del 20 al 22 de diciembre quedan bloqueadas; el 12 y 13 ya tienen una reserva confirmada.*
 
 #### Solicitar una reserva (H03, H13)
 
@@ -125,6 +150,12 @@ frontend esas pantallas todavía piden sesión (ver
 5. Si la publicación exige verificación y la cuenta no está verificada, se
    muestra el motivo y un enlace a `/verificacion`.
 
+![Calendario de disponibilidad con un día elegido y el resumen](img/guia/08-solicitar.png)
+*Período elegido en el calendario, con el costo estimado y el depósito por separado.*
+
+![Solicitud enviada en estado PENDIENTE](img/guia/09-solicitud-enviada.png)
+*La solicitud enviada, en estado PENDIENTE.*
+
 #### Aprobar o rechazar una solicitud (H04)
 
 1. Como ARRENDADOR, pulsar «Mis solicitudes» en el inicio
@@ -136,6 +167,12 @@ frontend esas pantallas todavía piden sesión (ver
    caracteres.
 5. La fila se actualiza con el estado nuevo y el arrendatario recibe el aviso.
    Si las fechas ya se ocuparon con otra reserva, se explica el conflicto.
+
+![Mis solicitudes con el filtro PENDIENTE](img/guia/10-solicitudes.png)
+*«Mis solicitudes» con el filtro PENDIENTE.*
+
+![Detalle de una solicitud con el motivo de rechazo](img/guia/11-rechazar.png)
+*Rechazar una solicitud con su motivo (opcional, hasta 500 caracteres).*
 
 ### Módulo 4: Pagos y garantía
 
@@ -152,6 +189,12 @@ frontend esas pantallas todavía piden sesión (ver
    3 por reserva).
 5. El estado del último pago queda visible en el detalle de la reserva.
 
+![Pantalla de pago simulado](img/guia/12-pago.png)
+*Pago simulado con la tarjeta de prueba terminada en 4242.*
+
+![Pago aprobado](img/guia/13-pago-aprobado.png)
+*Resultado: pago aprobado, con el total cobrado y el número de intento.*
+
 #### Registrar la entrega (H08)
 
 1. Como ARRENDADOR, abrir `/reservas/{id}/entrega` de una reserva CONFIRMADA
@@ -167,6 +210,12 @@ frontend esas pantallas todavía piden sesión (ver
 4. El arrendador y el arrendatario ven después el detalle de la entrega con
    sus fotos, sin formulario.
 
+![Formulario de entrega](img/guia/14-entrega.png)
+*Nota del estado inicial y foto de la entrega.*
+
+![Entrega registrada](img/guia/15-entrega-registrada.png)
+*Entrega registrada: la reserva pasó a EN_CURSO.*
+
 #### Registrar la devolución y resolver la garantía (H09)
 
 1. Como ARRENDADOR, abrir la reserva desde «Mis solicitudes» y entrar a
@@ -179,6 +228,12 @@ frontend esas pantallas todavía piden sesión (ver
 4. Confirmar. La reserva pasa a COMPLETADA y el arrendatario recibe el aviso.
    El arrendatario ve la misma pantalla sin acciones.
 
+![Formulario de devolución](img/guia/16-devolucion.png)
+*Paso 1: registrar la devolución.*
+
+![Resolución del depósito de garantía](img/guia/17-garantia.png)
+*Paso 2: resolver el depósito, con el monto retenido, su motivo y el monto liberado.*
+
 ### Módulo 5: Mensajería
 
 #### Preguntar antes de reservar (H15)
@@ -189,6 +244,9 @@ frontend esas pantallas todavía piden sesión (ver
 3. El arrendador recibe el aviso «Mensaje nuevo» y responde en la misma
    conversación.
 
+![Conversación con el arrendador desde el detalle](img/guia/18-contactar.png)
+*La conversación con el arrendador, al final del detalle de la publicación.*
+
 #### Conversar sobre una reserva (H16)
 
 1. El arrendatario o el arrendador abren `/reservas/{id}/conversacion`.
@@ -196,6 +254,9 @@ frontend esas pantallas todavía piden sesión (ver
    escribir; pulsar «Actualizar» trae los mensajes nuevos.
 3. Con la reserva PENDIENTE la conversación todavía no se habilita; con la
    reserva RECHAZADA, CANCELADA o COMPLETADA solo se lee el historial.
+
+![Conversación de una reserva confirmada](img/guia/19-conversacion-reserva.png)
+*Conversación de una reserva CONFIRMADA.*
 
 ### Módulo 6: Reseñas
 
@@ -208,12 +269,18 @@ frontend esas pantallas todavía piden sesión (ver
    quiere, escribir un comentario de hasta 500 caracteres.
 4. Enviar. La sección muestra lo guardado y ya no ofrece calificar otra vez.
 
+![Formulario para calificar el bien y al arrendador](img/guia/20-calificar-bien.png)
+*Calificación del bien y del arrendador en una reserva COMPLETADA.*
+
 #### Calificar al arrendatario (H18)
 
 1. Como ARRENDADOR, abrir `/arrendador/solicitudes?estado=COMPLETADA`.
 2. En una reserva sin calificar, pulsar «Calificar al arrendatario».
 3. Elegir de 1 a 5 estrellas y, si se quiere, escribir un comentario.
 4. Enviar. La fila pasa a «Ya calificado ✓».
+
+![Formulario para calificar al arrendatario](img/guia/21-calificar-arrendatario.png)
+*Calificar al arrendatario desde «Mis solicitudes» con el filtro COMPLETADA; las ya calificadas dicen «Ya calificado ✓».*
 
 ### Módulo 7: Verificación de identidad
 
@@ -227,12 +294,18 @@ frontend esas pantallas todavía piden sesión (ver
 4. Al volver, se ve «Identidad verificada» o «Verificación rechazada» con el
    motivo y el formulario para reenviar.
 
+![Pantalla de verificación de identidad](img/guia/22-verificacion.png)
+*Verificación de identidad de una cuenta que todavía no envió su documento.*
+
 #### Revisar documentos (H07)
 
 1. Como REVISOR, abrir `/verificacion/revision`.
 2. La cola muestra las solicitudes PENDIENTE en orden de llegada.
 3. Abrir el documento de una solicitud.
 4. Aprobar, o rechazar con un motivo opcional de hasta 500 caracteres.
+
+![Cola de revisión de verificaciones](img/guia/23-revision.png)
+*Cola del revisor con una solicitud pendiente.*
 
 #### Exigir verificación en una publicación (H19)
 
@@ -244,6 +317,9 @@ frontend esas pantallas todavía piden sesión (ver
 2. Desde ese momento, solo los arrendatarios con la identidad APROBADA pueden
    solicitarla. A los demás, al pulsar «Solicitar reserva», se les muestra el
    motivo y el enlace a `/verificacion`.
+
+![Aviso de verificación requerida al solicitar](img/guia/24-requiere-verificacion.png)
+*Un arrendatario sin verificar intenta solicitar una publicación que exige verificación.*
 
 ### Módulo 8: Notificaciones
 
@@ -261,6 +337,9 @@ Los avisos llegan por solicitud nueva, reserva confirmada o rechazada, pago
 aprobado o rechazado, garantía resuelta y mensaje nuevo (catálogo en
 [notificaciones](modulos/notificaciones.md)).
 
+![Bandeja de notificaciones abierta](img/guia/25-notificaciones.png)
+*La bandeja de avisos del arrendador.*
+
 ### Módulo 9: Reportes
 
 #### Reporte de ingresos (H21)
@@ -269,6 +348,9 @@ aprobado o rechazado, garantía resuelta y mensaje nuevo (catálogo en
 2. Elegir el rango de fechas.
 3. Se ve el total y una tabla con el ingreso de cada bien en ese período.
 
+![Reporte de ingresos](img/guia/26-ingresos.png)
+*Ingresos de noviembre por bien.*
+
 #### Reporte de ocupación (H22)
 
 1. Como ARRENDADOR, abrir `/reportes/ocupacion`.
@@ -276,3 +358,6 @@ aprobado o rechazado, garantía resuelta y mensaje nuevo (catálogo en
    días.
 3. La tabla muestra por bien los días ocupados, los días disponibles y la
    tasa de ocupación con un decimal (un bien sin reservas sale con 0.0 %).
+
+![Reporte de tasa de ocupación](img/guia/27-ocupacion.png)
+*Tasa de ocupación de noviembre por bien.*
