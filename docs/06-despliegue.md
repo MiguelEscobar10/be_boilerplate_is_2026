@@ -29,7 +29,8 @@ Hay dos formas preparadas. En una máquina con Docker, todo corre con
 el 3000 y PostgreSQL 18 sin puerto publicado, con los volúmenes `pgdata` y
 `uploads`. En una plataforma administrada, el backend y el frontend se
 construyen desde el `Dockerfile` de cada repositorio, con una base
-PostgreSQL 18 administrada y un disco persistente en `/app/uploads`.
+PostgreSQL 18 administrada y, si el plan lo permite, un disco persistente en
+`/app/uploads`.
 
 ## Cómo se publica una nueva versión
 
@@ -49,7 +50,7 @@ ninguno de los dos repositorios.
    docker compose -f docker-compose.demo.yml --env-file .env.demo up -d --build
    ```
 
-   El backend aplica las migraciones pendientes al arrancar
+   Con Docker, el backend aplica las migraciones pendientes al arrancar
    (`npx prisma migrate deploy && node dist/main.js`). El seed se corre una
    sola vez, desde el servicio del backend: `npx prisma db seed`.
 
