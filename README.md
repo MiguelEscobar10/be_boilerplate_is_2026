@@ -294,6 +294,18 @@ En desarrollo también crea `demo@example.com` / `Demo1234!`, el usuario del boi
 
 En producción (`NODE_ENV=production`) no hay accesos por defecto: el seed exige `SEED_LANDLORD_*`, `SEED_TENANT_*` y `SEED_REVIEWER_*` (email y contraseña de cada una), falla si falta alguna, no imprime las contraseñas y no crea `demo@example.com`. Las variables están en [`.env.example`](.env.example) y [`.env.demo.example`](.env.demo.example). Ver [docs/despliegue.md](docs/despliegue.md).
 
+Además crea datos de ejemplo, en desarrollo y en producción, para recorrer los flujos sin capturar nada a mano. Todo queda a nombre de la cuenta ARRENDADOR del seed:
+
+| Dato | Detalle |
+|---|---|
+| 5 publicaciones activas | Taladro percutor (EQUIPO, por día), proyector multimedia (EQUIPO, por día, **requiere verificación**), salón para eventos (ESPACIO, por hora), cabaña en la montaña (ESPACIO, por noche) y carpa plegable (EQUIPO, por semana). Todas con tarifa y depósito. |
+| 1 bloqueo de fechas | La cabaña, 3 días a partir de dos semanas después de la primera corrida. |
+| Reserva PENDIENTE | Del ARRENDATARIO, el salón por 4 horas una semana después: para aprobarla o rechazarla y luego pagarla. |
+| Reserva CONFIRMADA | Del ARRENDATARIO, el taladro por 3 días desde el día anterior: ya empezó, así que se puede pagar, registrar la entrega y después la devolución. |
+| Reserva COMPLETADA | Del ARRENDATARIO, la carpa por 3 días hace 10 días, con todo el flujo cerrado: pago APROBADO (tarjeta 4242), entrega, devolución sin observaciones y garantía liberada. Da datos a los reportes de ingresos y de ocupación (el mes en curso, o un rango que incluya esas fechas) y deja pendientes las dos calificaciones: la del bien y el arrendador, y la del arrendatario. |
+
+Cada fila tiene un id fijo (empieza con `5eed`) y se crea con `upsert` sin actualizar nada: correr el seed otra vez no duplica datos ni deshace lo que se haya hecho en la demo. Las fechas se calculan la primera vez y después quedan fijas; para regenerarlas, `npm run db:reset`. Las publicaciones no tienen fotos: las imágenes se guardan en disco y en Render el disco se pierde al reiniciar, así que el frontend muestra "Sin fotografía".
+
 ---
 
 ## Autenticación
@@ -518,7 +530,7 @@ nest build && tsc-alias -p tsconfig.build.json
 ├── prisma/
 │   ├── schema.prisma             # 18 modelos (User, RefreshToken y los del proyecto)
 │   ├── migrations/               # Migraciones versionadas
-│   └── seed.ts                   # Una cuenta por rol (y el usuario demo en desarrollo)
+│   └── seed.ts                   # Una cuenta por rol, datos de ejemplo (y el usuario demo en desarrollo)
 └── src/
     ├── main.ts                   # Bootstrap: prefijo, validación, Swagger
     ├── app.module.ts             # Módulo raíz y guard global
@@ -578,5 +590,5 @@ Cada carpeta de capa incluye un `index.ts` que reexporta sus elementos, de modo 
 | `prisma:migrate` | Crea y aplica una migración (desarrollo) |
 | `prisma:deploy` | Aplica migraciones pendientes (producción) |
 | `prisma:studio` | Abre Prisma Studio |
-| `db:seed` | Crea una cuenta por rol (ARRENDADOR, ARRENDATARIO, REVISOR) |
+| `db:seed` | Crea una cuenta por rol (ARRENDADOR, ARRENDATARIO, REVISOR) y datos de ejemplo |
 | `db:reset` | Resetea la base y vuelve a migrar |
