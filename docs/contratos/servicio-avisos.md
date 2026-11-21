@@ -88,7 +88,8 @@ bandeja del destinatario (`GET /api/v1/notificaciones`).
 `titulo` y `mensaje` **nunca** deben incluir números de tarjeta (ni los últimos
 4 dígitos), códigos de seguridad, números de documentos (DUI, NIT, pasaporte) ni
 contraseñas. Tampoco el texto de un mensaje del chat. **Los importes sí se
-permiten**: H05 pide el monto total en el aviso de pago.
+permiten**: H05 pide el monto total en el aviso de pago y H09 los montos
+liberado y retenido de la garantía.
 
 El servicio no lo verifica: lo garantiza quien llama.
 
@@ -142,11 +143,11 @@ que **identifica el evento**, no la entidad más general:
 |---|---|---|
 | Solicitud nueva, reserva CONFIRMADA / RECHAZADA | `{ tipo: 'reserva', id: reserva.id }` | Pasa una vez por reserva. CONFIRMADA y RECHAZADA tienen títulos distintos, así que no chocan. |
 | Pago APROBADO / RECHAZADO | `{ tipo: 'pago', id: pago.id }` | Una reserva admite hasta 3 intentos de pago. Con el id de la reserva, el segundo «Pago rechazado» se tomaría como duplicado y no llegaría. |
-| Garantía resuelta | `{ tipo: 'garantia', id: garantia.id }` | Se resuelve una vez por garantía. |
+| Garantía resuelta | `{ tipo: 'reserva', id: reserva.id }` | Se resuelve una vez por reserva (hay a lo sumo una resolución por reserva) y su título es distinto de los de H03 y H04, así que no choca con ellos. |
 | Mensaje nuevo | `{ tipo: 'mensaje', id: mensaje.id }` | Con el id de la conversación, solo habría un «Mensaje nuevo» por conversación para siempre. Con el del mensaje, cada mensaje avisa una vez. |
 
 `tipo` en minúsculas y en singular, con el nombre de la entidad del brief
-(`reserva`, `pago`, `garantia`, `mensaje`).
+(`reserva`, `pago`, `mensaje`).
 
 ## Enum `ModuloOrigen`
 
@@ -185,6 +186,13 @@ La tabla de eventos del brief (H03, H04, H05, H09, H15, H16):
 
 Los títulos son textos fijos: úsalos exactamente así. La bandeja y la
 deduplicación dependen de ellos.
+
+El texto exacto que emite hoy cada módulo (título, mensaje, destinatario y
+referencia) está en el catálogo de BE-10.2, en
+[`docs/modulos/notificaciones.md`](../modulos/notificaciones.md#be-102-catálogo-de-avisos-mp4-108).
+Los ejemplos de abajo muestran la forma de la llamada; en BE-03.1 y BE-04.1 el
+mensaje real además lleva la hora de la reserva, así que si hay diferencia vale
+el catálogo.
 
 ## Ejemplos por módulo emisor
 
@@ -361,23 +369,32 @@ export function avisarPagoRechazado(
 
 ### BE-09.2 · Garantía resuelta
 
+La referencia es la reserva (la garantía se resuelve una vez por reserva) y el
+mensaje lleva los montos liberado y retenido con dos decimales, igual que
+`deposit-resolutions.service.ts` (H09, ver
+[`docs/modulos/devoluciones.md`](../modulos/devoluciones.md)).
+
 ```ts
 export function avisarGarantiaResuelta(
   avisos: AvisosService,
   garantia: {
-    id: string;
+    /** Id de la reserva: la garantía se resuelve una vez por reserva. */
+    reservaId: string;
     arrendatarioId: string;
     bienNombre: string;
-    estado: 'LIBERADA' | 'RETENIDA';
+    /** En USD. Liberado más retenido es el depósito de la reserva. */
+    montoLiberado: number;
+    montoRetenido: number;
   },
 ): Promise<AvisoRegistrado> {
-  const resultado = garantia.estado === 'LIBERADA' ? 'liberado' : 'retenido';
+  const liberado = `$${garantia.montoLiberado.toFixed(2)}`;
+  const retenido = `$${garantia.montoRetenido.toFixed(2)}`;
   return avisos.notificar({
     destinatarioId: garantia.arrendatarioId,
     titulo: 'Depósito de garantía resuelto',
-    mensaje: `El depósito de garantía de «${garantia.bienNombre}» fue ${resultado}.`,
+    mensaje: `El depósito de garantía de «${garantia.bienNombre}» fue resuelto: monto liberado ${liberado}, monto retenido ${retenido}.`,
     moduloOrigen: ModuloOrigen.PAGOS_GARANTIA,
-    referencia: { tipo: 'garantia', id: garantia.id },
+    referencia: { tipo: 'reserva', id: garantia.reservaId },
   });
 }
 ```

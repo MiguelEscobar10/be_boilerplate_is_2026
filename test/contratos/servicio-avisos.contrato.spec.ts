@@ -31,7 +31,6 @@ const ARRENDADOR = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
 const ARRENDATARIO = '1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e';
 const RESERVA = '2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e6f';
 const PAGO = '3d4e5f6a-7b8c-4d9e-8f1a-2b3c4d5e6f7a';
-const GARANTIA = '4e5f6a7b-8c9d-4e0f-9a2b-3c4d5e6f7a8b';
 const MENSAJE = '5f6a7b8c-9d0e-4f1a-8b3c-4d5e6f7a8b9c';
 
 const BIEN = 'Taladro percutor Bosch';
@@ -252,16 +251,17 @@ describe('Contrato del servicio de avisos', () => {
     });
 
     it.each([
-      ['LIBERADA', 'liberado'],
-      ['RETENIDA', 'retenido'],
+      ['liberada entera', 20, 0, '$20.00', '$0.00'],
+      ['retenida en parte', 15, 5, '$15.00', '$5.00'],
     ] as const)(
-      'BE-09.2: garantía %s → arrendatario',
-      async (estado, resultado) => {
+      'BE-09.2: garantía %s → arrendatario, con los dos montos',
+      async (_caso, montoLiberado, montoRetenido, liberado, retenido) => {
         await avisarGarantiaResuelta(avisos, {
-          id: GARANTIA,
+          reservaId: RESERVA,
           arrendatarioId: ARRENDATARIO,
           bienNombre: BIEN,
-          estado,
+          montoLiberado,
+          montoRetenido,
         });
 
         expect(registrados()).toEqual([
@@ -269,9 +269,10 @@ describe('Contrato del servicio de avisos', () => {
             userId: ARRENDATARIO,
             sourceModule: 'PAGOS_GARANTIA',
             title: 'Depósito de garantía resuelto',
-            message: `El depósito de garantía de «${BIEN}» fue ${resultado}.`,
-            referenceType: 'garantia',
-            referenceId: GARANTIA,
+            // Igual a lo que emite deposit-resolutions.service.ts (BE-09.2).
+            message: `El depósito de garantía de «${BIEN}» fue resuelto: monto liberado ${liberado}, monto retenido ${retenido}.`,
+            referenceType: 'reserva',
+            referenceId: RESERVA,
           },
         ]);
       },

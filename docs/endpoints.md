@@ -54,11 +54,15 @@ módulo en [`modulos/`](modulos/).
 | Pagos (M4) | POST | `/api/v1/reservas/{id}/pagos/simulados` | ARRENDATARIO | Paga una reserva confirmada con una tarjeta de prueba |
 | Pagos (M4) | GET | `/api/v1/reservas/{id}/pagos/ultimo` | ARRENDATARIO | Consulta el último pago de una reserva propia |
 | Reportes (M9) | GET | `/api/v1/reportes/ocupacion` | ARRENDADOR | Tasa de ocupación de los bienes del arrendador en un período |
+| Reservas y disponibilidad (M3) | POST | `/api/v1/reservas` | ARRENDATARIO | Solicita una reserva: queda PENDIENTE, con el costo calculado por el servidor |
+| Reservas y disponibilidad (M3) | GET | `/api/v1/reservas/{id}` | con sesión | Detalle de una reserva propia (del arrendatario o del dueño de la publicación) |
 | Reservas y disponibilidad (M3) | GET | `/api/v1/arrendador/solicitudes` | ARRENDADOR | Solicitudes de reserva de las publicaciones del arrendador |
 | Reservas y disponibilidad (M3) | PATCH | `/api/v1/reservas/{id}/decision` | ARRENDADOR | Aprueba o rechaza una solicitud de reserva PENDIENTE |
 | Pagos (M4) | POST | `/api/v1/reservas/{id}/deposito/resolucion` | ARRENDADOR | Resuelve la garantía y pasa la reserva a COMPLETADA (simulado) |
 | Pagos (M4) | GET | `/api/v1/reservas/{id}/deposito/resolucion` | con sesión | Consulta el estado de la garantía de una reserva propia |
 | Pagos (M4) | POST | `/api/v1/reservas/{id}/devolucion` | ARRENDADOR | Registra la devolución de una reserva EN_CURSO |
+| Reseñas (M6) | POST | `/api/v1/reservas/{id}/calificacion` | ARRENDATARIO | Califica el bien y al arrendador de una reserva COMPLETADA |
+| Reseñas (M6) | GET | `/api/v1/reservas/{id}/calificacion` | ARRENDATARIO | Consulta la calificación que dejaste en una reserva propia |
 | Pagos (M4) | GET | `/api/v1/reservas/{id}/devolucion` | con sesión | Consulta la devolución de una reserva propia |
 | Cuentas | POST | `/api/v1/users` | pública | Registra una cuenta de arrendador o arrendatario |
 | Verificación (M7) | PATCH | `/api/v1/publicaciones/{id}/requiere-verificacion` | ARRENDADOR | Activa o desactiva "requiere verificación" en una publicación propia |

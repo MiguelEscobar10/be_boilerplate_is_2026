@@ -33,10 +33,10 @@ flowchart LR
 | 0. Cuentas y roles | H00 | `src/auth`, `src/users` | [cuentas](modulos/cuentas.md) |
 | 1. Catálogo | H01, H12 | `src/listings` | [catalogo](modulos/catalogo.md) |
 | 2. Búsqueda y filtros | H02, H11 | `src/listings` | [catalogo](modulos/catalogo.md) |
-| 3. Reservas y disponibilidad | H03, H04, H13, H14 | `src/reservation-decisions`, `src/availability` | [reservas](modulos/reservas.md) |
+| 3. Reservas y disponibilidad | H03, H04, H13, H14 | `src/reservations`, `src/reservation-decisions`, `src/availability` | [reservas](modulos/reservas.md) |
 | 4. Pagos y garantía | H05, H06, H08, H09 | `src/payments`, `src/deliveries`, `src/returns` | [pagos](modulos/pagos.md), [entregas](modulos/entregas.md), [devoluciones](modulos/devoluciones.md) |
 | 5. Mensajería | H15, H16 | `src/messaging` | [mensajeria](modulos/mensajeria.md) |
-| 6. Reseñas | H17, H18 | (en desarrollo) | [resenas](modulos/resenas.md) |
+| 6. Reseñas | H17, H18 | `src/listing-ratings`, `src/tenant-ratings` | [resenas](modulos/resenas.md) |
 | 7. Verificación de identidad | H07, H19 | `src/verification` | [verificacion](modulos/verificacion.md) |
 | 8. Notificaciones | H10, H20 | `src/notifications` | [notificaciones](modulos/notificaciones.md) |
 | 9. Reportes | H21, H22 | `src/income`, `src/reports` | [ingresos](modulos/ingresos.md), [reportes](modulos/reportes.md) |
