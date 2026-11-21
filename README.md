@@ -4,6 +4,7 @@ Proyecto 4 de Ingeniería de Software (UCA), equipo **MMitas Puebla**.
 Permite a un arrendador publicar equipos o espacios y a un arrendatario
 buscarlos, reservarlos, pagarlos (simulado), coordinar la entrega y calificar.
 
+- **Demo publicada (Render):** https://mp4-frontend.onrender.com. API en https://mp4-backend-4ua0.onrender.com/api/v1 y Swagger en https://mp4-backend-4ua0.onrender.com/api/docs. Detalles y limitaciones en [docs/06-despliegue.md](docs/06-despliegue.md)
 - **Frontend:** [fe_boilerplate_is_2026](https://github.com/MiguelEscobar10/fe_boilerplate_is_2026)
 - **Documentación:** [`docs/`](docs/README.md): [arquitectura y decisiones](docs/arquitectura.md), [modelo de datos](docs/modelo-de-datos.md), [endpoints](docs/endpoints.md), [módulos](docs/modulos/) y [QA](docs/qa/)
 - **Cómo trabajamos:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
