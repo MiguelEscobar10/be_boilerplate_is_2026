@@ -2,23 +2,35 @@
 
 Resumen de [despliegue.md](despliegue.md), que tiene los comandos completos,
 lo que se probó y los puntos que no hay que olvidar. La configuración está
-probada con Docker (`docker-compose.demo.yml`, MP4-131); falta anotar dónde
-quedó publicada.
+probada con Docker (`docker-compose.demo.yml`, MP4-131), y la demo publicada
+corre en Render con los `Dockerfile` de cada repositorio.
 
 ## Dónde está desplegado
 
 | Componente | Plataforma | URL | Rama |
 |---|---|---|---|
-| Frontend | [PENDIENTE: plataforma; la sabe Lee] | [PENDIENTE: URL pública; la sabe Lee] | [PENDIENTE: rama desplegada; la sabe Lee] |
-| Backend | [PENDIENTE: plataforma; la sabe Lee] | [PENDIENTE: URL pública de `/api/v1` y de Swagger; la sabe Lee] | [PENDIENTE: rama desplegada; la sabe Lee] |
-| Base de datos | [PENDIENTE: plataforma; la sabe Lee] | (privada) | |
+| Frontend | Render, Web Service con Docker (plan gratis, Oregon) | https://mp4-frontend.onrender.com | `main` |
+| Backend | Render, Web Service con Docker (plan gratis, Oregon) | API: https://mp4-backend-4ua0.onrender.com/api/v1 · Swagger: https://mp4-backend-4ua0.onrender.com/api/docs | `main` |
+| Base de datos | Render PostgreSQL 18 (plan gratis, Oregon) | (privada; el backend la usa por la red interna de Render) | |
+
+Las dos URLs públicas tienen HTTPS (Render lo pone solo) y Swagger es público.
+No hace falta CORS: el navegador nunca llama al backend directo, todo pasa por
+las rutas del servidor de Next (route handlers y server actions).
+
+Limitaciones del plan gratis de Render, que no afectan la defensa:
+
+- Los servicios se duermen sin uso; la primera visita tarda unos 50 segundos.
+- No hay disco persistente: las fotos y los documentos subidos se pierden
+  cuando el backend se reinicia o se vuelve a desplegar.
+- La base gratis vence el 20 de diciembre de 2026.
 
 Hay dos formas preparadas. En una máquina con Docker, todo corre con
 `docker-compose.demo.yml`: el frontend queda en el puerto 8080, el backend en
 el 3000 y PostgreSQL 18 sin puerto publicado, con los volúmenes `pgdata` y
 `uploads`. En una plataforma administrada, el backend y el frontend se
 construyen desde el `Dockerfile` de cada repositorio, con una base
-PostgreSQL 18 administrada y un disco persistente en `/app/uploads`.
+PostgreSQL 18 administrada y, si el plan lo permite, un disco persistente en
+`/app/uploads`.
 
 ## Cómo se publica una nueva versión
 
@@ -38,11 +50,18 @@ ninguno de los dos repositorios.
    docker compose -f docker-compose.demo.yml --env-file .env.demo up -d --build
    ```
 
-   El backend aplica las migraciones pendientes al arrancar
+   Con Docker, el backend aplica las migraciones pendientes al arrancar
    (`npx prisma migrate deploy && node dist/main.js`). El seed se corre una
    sola vez, desde el servicio del backend: `npx prisma db seed`.
-   [PENDIENTE: si la demo está en una plataforma administrada, si despliega
-   sola al fusionar a `main` o hay que dispararlo a mano; lo sabe Lee].
+
+   En Render los dos servicios tienen el despliegue automático al hacer
+   commit en `main`; si no arranca solo, se dispara en cada servicio con
+   *Manual Deploy → Deploy latest commit*. Render ejecuta el *Docker Command*
+   sin shell, así que no se puede encadenar con `&&`: el backend arranca con
+   `node dist/main.js`. Cuando entra una migración nueva, se cambia el
+   *Docker Command* a `npx prisma migrate deploy`, se despliega, y se vuelve a
+   `node dist/main.js`. El seed se corrió igual, una vez, con
+   `npx prisma db seed`.
 
 ## Variables de entorno en producción
 
@@ -60,5 +79,9 @@ ninguno de los dos repositorios.
 
 `.env.demo` se crea copiando [`.env.demo.example`](../.env.demo.example) y no
 se sube al repositorio. Los valores reales nunca van en el README ni en estos
-documentos. [PENDIENTE: dónde quedaron cargadas en la demo publicada; lo sabe
-Lee].
+documentos. En la demo publicada están cargadas como variables de entorno de
+cada servicio en Render (*mp4-backend* y *mp4-frontend* → Environment);
+`JWT_SECRET` y las tres contraseñas del seed las generó Render. El seed creó
+`arrendador@mmitas-demo.com`, `arrendatario@mmitas-demo.com` y
+`revisor@mmitas-demo.com`; las contraseñas se pasan a la cátedra por un canal
+privado.
