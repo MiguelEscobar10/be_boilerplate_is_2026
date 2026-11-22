@@ -24,7 +24,7 @@ const DAY = 24 * HOUR;
 
 type Session = { token: string; userId: string };
 
-describe('QA-04.1: aprobar o rechazar una reserva', () => {
+describe('H04. Aprobar o rechazar una reserva', () => {
   const email = `qa-04.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   let app: INestApplication<App>;
@@ -171,8 +171,8 @@ describe('QA-04.1: aprobar o rechazar una reserva', () => {
     await app.close();
   });
 
-  describe('criterio 1: Mis solicitudes', () => {
-    it('A01: ve solo las de sus bienes, de la más reciente a la más antigua, con quién, bien, fechas, costo y estado', async () => {
+  describe('Mis solicitudes (AC1)', () => {
+    it('AC1: ve solo las de sus bienes, de la más reciente a la más antigua, con quién, bien, fechas, costo y estado (A01)', async () => {
       const mine = await newListing(landlord, 'Taladro A01');
       const foreign = await newListing(otherLandlord, 'Ajena A01');
       const older = await request_(mine, freshDay());
@@ -202,7 +202,7 @@ describe('QA-04.1: aprobar o rechazar una reserva', () => {
       });
     });
 
-    it('A02: de 12 en 12 por página, con filtro por estado; sin solicitudes, lista vacía', async () => {
+    it('AC1: de 12 en 12 por página, con filtro por estado; sin solicitudes, lista vacía (A02)', async () => {
       const listing = await newListing(landlord, 'Paginación A02');
       for (let i = 0; i < 13; i++) await request_(listing, freshDay());
 
@@ -225,8 +225,8 @@ describe('QA-04.1: aprobar o rechazar una reserva', () => {
     });
   });
 
-  describe('criterios 2, 3 y 4: aprobar y rechazar', () => {
-    it('A03: aprobar una PENDIENTE sin choques la deja CONFIRMADA, registra quién y cuándo, y ocupa las fechas', async () => {
+  describe('aprobar y rechazar (AC2, AC3, AC7)', () => {
+    it('AC2: aprobar una PENDIENTE sin choques la deja CONFIRMADA, registra quién y cuándo, y ocupa las fechas (A03)', async () => {
       const listing = await newListing();
       const day = freshDay();
       const r = await request_(listing, day);
@@ -244,7 +244,7 @@ describe('QA-04.1: aprobar o rechazar una reserva', () => {
       ]);
     });
 
-    it('A04: rechazar una PENDIENTE la deja RECHAZADA y las fechas siguen libres', async () => {
+    it('AC3: rechazar una PENDIENTE la deja RECHAZADA y las fechas siguen libres (A04)', async () => {
       const listing = await newListing();
       const day = freshDay();
       const r = await request_(listing, day);
@@ -255,7 +255,7 @@ describe('QA-04.1: aprobar o rechazar una reserva', () => {
       expect(await busyDays(listing, day)).toHaveLength(0);
     });
 
-    it('A05: el motivo es opcional, se guarda (500 caracteres) y 501 se rechaza sin cambiar nada', async () => {
+    it('AC7: el motivo es opcional, se guarda (500 caracteres) y 501 se rechaza sin cambiar nada (A05)', async () => {
       const listing = await newListing();
       const sin = await request_(listing, freshDay());
       const con = await request_(listing, freshDay());
@@ -279,8 +279,8 @@ describe('QA-04.1: aprobar o rechazar una reserva', () => {
     });
   });
 
-  describe('criterio 5: solicitudes que no se pueden modificar', () => {
-    it('A06: otro arrendador recibe 403 «Esta solicitud no se puede modificar.» al aprobar y al rechazar', async () => {
+  describe('solicitudes que no se pueden modificar (AC4)', () => {
+    it('AC4: otro arrendador recibe 403 «Esta solicitud no se puede modificar.» al aprobar y al rechazar (A06)', async () => {
       const r = await request_(await newListing(), freshDay());
 
       for (const decision of ['APROBAR', 'RECHAZAR']) {
@@ -290,7 +290,7 @@ describe('QA-04.1: aprobar o rechazar una reserva', () => {
       await expectUntouched(r.id);
     });
 
-    it('A07: una solicitud ya decidida responde 409 con el mismo texto y no cambia', async () => {
+    it('AC4: una solicitud ya decidida responde 409 con el mismo texto y no cambia (A07)', async () => {
       const r = await request_(await newListing(), freshDay());
       await decide(r.id, { decision: 'RECHAZAR' }).expect(200);
 
@@ -304,7 +304,7 @@ describe('QA-04.1: aprobar o rechazar una reserva', () => {
       expect(await noticesOf(r.id)).toHaveLength(1);
     });
 
-    it('A08: el arrendatario no puede decidir (403) y sin sesión es 401', async () => {
+    it('AC4: el arrendatario no puede decidir (403) y sin sesión es 401 (A08)', async () => {
       const r = await request_(await newListing(), freshDay());
 
       await decide(r.id, { decision: 'APROBAR' }, tenant).expect(403);
@@ -315,8 +315,8 @@ describe('QA-04.1: aprobar o rechazar una reserva', () => {
     });
   });
 
-  describe('criterios 6 y 7: conflictos de disponibilidad', () => {
-    it('A09: aprobar choca con una CONFIRMADA o EN_CURSO que se cruza: 409 de conflicto', async () => {
+  describe('conflictos de disponibilidad (AC5, AC6)', () => {
+    it('AC5: aprobar choca con una CONFIRMADA o EN_CURSO que se cruza: 409 de conflicto (A09)', async () => {
       for (const ocupada of ['CONFIRMADA', 'EN_CURSO'] as const) {
         const listing = await newListing();
         const day = freshDay();
@@ -334,7 +334,7 @@ describe('QA-04.1: aprobar o rechazar una reserva', () => {
       }
     });
 
-    it('A10: tras confirmar una, las otras PENDIENTE que se cruzan siguen PENDIENTE: aprobarlas da 409 y rechazarlas se puede', async () => {
+    it('AC6: tras confirmar una, las otras PENDIENTE que se cruzan siguen PENDIENTE: aprobarlas da 409 y rechazarlas se puede (A10)', async () => {
       const listing = await newListing();
       const day = freshDay();
       const a = await request_(listing, day, 4);
@@ -351,7 +351,7 @@ describe('QA-04.1: aprobar o rechazar una reserva', () => {
       expect((await reservationOf(c.id)).status).toBe('RECHAZADA');
     });
 
-    it('A11: tampoco se puede aprobar sobre fechas que el arrendador bloqueó (H14)', async () => {
+    it('AC5: tampoco se puede aprobar sobre fechas que el arrendador bloqueó (H14) (A11)', async () => {
       const listing = await newListing();
       const day = freshDay();
       await auth(
@@ -374,8 +374,8 @@ describe('QA-04.1: aprobar o rechazar una reserva', () => {
     });
   });
 
-  describe('criterio 8: aviso al arrendatario', () => {
-    it('A12: «Reserva CONFIRMADA» con el bien y las fechas, en la bandeja del arrendatario', async () => {
+  describe('aviso al arrendatario (AC7, AC8)', () => {
+    it('AC8: «Reserva CONFIRMADA» con el bien y las fechas, en la bandeja del arrendatario (A12)', async () => {
       const listing = await newListing(landlord, 'Cámara A12');
       const r = await request_(listing, new Date(Date.UTC(2027, 2, 10, 15)));
 
@@ -397,7 +397,7 @@ describe('QA-04.1: aprobar o rechazar una reserva', () => {
       });
     });
 
-    it('A13: «Reserva RECHAZADA» con el motivo si lo hay', async () => {
+    it('AC8: «Reserva RECHAZADA» con el motivo si lo hay (A13)', async () => {
       const r = await request_(
         await newListing(landlord, 'Cámara A13'),
         new Date(Date.UTC(2027, 2, 11, 15)),
@@ -418,8 +418,39 @@ describe('QA-04.1: aprobar o rechazar una reserva', () => {
     });
   });
 
-  describe('criterio 9: concurrencia', () => {
-    it('A14: dos solicitudes que se cruzan aprobadas a la vez (dos pestañas): solo una queda CONFIRMADA', async () => {
+  describe('el arrendatario ve el motivo (AC7)', () => {
+    it('AC7: el arrendatario ve el motivo de rechazo en el detalle de su reserva; sin motivo queda vacío (A16)', async () => {
+      const listing = await newListing(landlord, 'Cámara A16');
+      const conMotivo = await request_(listing, freshDay());
+      const sinMotivo = await request_(listing, freshDay());
+
+      await decide(conMotivo.id, {
+        decision: 'RECHAZAR',
+        motivo: 'El equipo está en reparación',
+      }).expect(200);
+      await decide(sinMotivo.id, { decision: 'RECHAZAR' }).expect(200);
+
+      const detalle = await auth(
+        http().get(`/api/v1/reservas/${conMotivo.id}`),
+        tenant,
+      ).expect(200);
+      expect(detalle.body).toMatchObject({
+        estado: 'RECHAZADA',
+        motivoRechazo: 'El equipo está en reparación',
+      });
+      const vacio = await auth(
+        http().get(`/api/v1/reservas/${sinMotivo.id}`),
+        tenant,
+      ).expect(200);
+      expect(vacio.body).toMatchObject({
+        estado: 'RECHAZADA',
+        motivoRechazo: null,
+      });
+    });
+  });
+
+  describe('concurrencia (AC4, AC5)', () => {
+    it('AC5: dos solicitudes que se cruzan aprobadas a la vez (dos pestañas): solo una queda CONFIRMADA (A14)', async () => {
       // Se repite para no depender de una sola carrera.
       for (let vuelta = 0; vuelta < 5; vuelta++) {
         const listing = await newListing();
@@ -447,7 +478,7 @@ describe('QA-04.1: aprobar o rechazar una reserva', () => {
       }
     });
 
-    it('A15: la misma solicitud aprobada y rechazada a la vez: una sola decisión y un solo aviso', async () => {
+    it('AC4: la misma solicitud aprobada y rechazada a la vez: una sola decisión y un solo aviso (A15)', async () => {
       for (let vuelta = 0; vuelta < 5; vuelta++) {
         const r = await request_(await newListing(), freshDay());
 
