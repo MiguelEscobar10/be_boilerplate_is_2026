@@ -79,7 +79,7 @@ como nombre (CP-319a.png, CP-319b.png…).
 | CP-320 | H03 | Sistema | Negativo | H03-AC4, H03-AC5 | El calendario no deja elegir días pasados ni ocupados | Pasó |
 | CP-321 | H03 | Sistema | Negativo | H03-AC7 | Sin verificación, la solicitud no se envía y se explica el motivo | No ejecutado |
 | CP-322 | H03 | Sistema | Positivo | H03-AC6 | El arrendador ve el aviso de la nueva solicitud en su bandeja | No ejecutado |
-| CP-323 | H06 | Sistema | Positivo | H06-AC1 | Ver el estado del pago en el detalle de la reserva | No ejecutado |
+| CP-323 | H06 | Sistema | Positivo | H06-AC1 | Ver el estado del pago en el detalle de la reserva | Pasó |
 | CP-324 | H06 | Sistema | Negativo | H06-AC3 | Reserva sin pagos muestra el aviso de que aún no hay pago | No ejecutado |
 | CP-325 | H17 | Sistema | Positivo | H17-AC1 | Calificar el bien y al arrendador desde la reserva | No ejecutado |
 | CP-326 | H17 | Sistema | Negativo | H17-AC6 | El formulario valida los puntajes y el comentario | No ejecutado |
@@ -95,7 +95,7 @@ como nombre (CP-319a.png, CP-319b.png…).
 Los casos de Integración se ejecutan con Swagger en el ambiente desplegado, los
 de Sistema desde el navegador y los de Aceptación los ejecuta Ricardo Pineda.
 Los de Sistema y Aceptación usan las reservas del seed (pendiente, confirmada y
-completada). Hasta ahora están ejecutados los tres de Componente, CP-319 y CP-320;
+completada). Hasta ahora están ejecutados los tres de Componente, CP-319, CP-320 y CP-323;
 el resto sigue como «No ejecutado». La sesión del ambiente desplegado expira a
 los pocos minutos, por eso la ejecución manual se hace por tandas.
 
