@@ -14,7 +14,9 @@ import { resolveTestDatabaseUrl } from '../helpers/test-database.js';
  * entregas indebidas (H08).
  *
  * Cada caso tiene un id (E01, E02...) que se repite en la evidencia de
- * docs/qa/QA-08.1-entrega.md. Además de la respuesta HTTP, cada caso revisa lo
+ * docs/qa/QA-08.1-entrega.md. Los casos que prueban un criterio de aceptación
+ * de H08 empiezan con «ACn:» y conservan su id al final, entre paréntesis.
+ * Además de la respuesta HTTP, cada caso revisa lo
  * que quedó guardado: el estado de la reserva, las filas de `deliveries` y
  * `delivery_photos`, y los archivos en la carpeta de fotos.
  *
@@ -40,7 +42,7 @@ type Status =
   | 'EN_CURSO'
   | 'COMPLETADA';
 
-describe('QA-08.1: entrega y prevención de entregas indebidas', () => {
+describe('H08. Registrar la entrega de un equipo o espacio', () => {
   const email = `qa-08.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   let app: INestApplication<App>;
@@ -203,7 +205,7 @@ describe('QA-08.1: entrega y prevención de entregas indebidas', () => {
   });
 
   describe('registro permitido', () => {
-    it('E01: equipo CONFIRMADO con el inicio alcanzado: 201, guarda nota y fotos, y la reserva pasa a EN_CURSO', async () => {
+    it('AC1: equipo CONFIRMADO con el inicio alcanzado: 201, queda la fecha, la nota y las fotos del estado inicial (E01)', async () => {
       const r = await reservation();
       const before = Date.now();
 
@@ -231,6 +233,20 @@ describe('QA-08.1: entrega y prevención de entregas indebidas', () => {
       const files = await storedPhotos();
       for (const photo of row.photos) {
         expect(files).toContain(photo.path.split('/').pop());
+      }
+    });
+
+    it('AC2: tras registrar la entrega, el arrendatario y el arrendador consultan la reserva y la ven EN_CURSO (E22)', async () => {
+      const r = await reservation();
+
+      await deliver(r.id).expect(201);
+
+      for (const who of [tenant, landlord]) {
+        const { body } = await http()
+          .get(`/api/v1/reservas/${r.id}`)
+          .set('Authorization', `Bearer ${who.token}`)
+          .expect(200);
+        expect(body).toMatchObject({ id: r.id, estado: 'EN_CURSO' });
       }
     });
 
@@ -271,7 +287,7 @@ describe('QA-08.1: entrega y prevención de entregas indebidas', () => {
   });
 
   describe('prevención de entregas indebidas', () => {
-    it('E05: antes del inicio responde 422 ENTREGA_NO_HABILITADA con la fecha y no cambia nada', async () => {
+    it('AC5: antes del inicio responde 422 ENTREGA_NO_HABILITADA con la fecha desde la que se habilita y no cambia nada (E05)', async () => {
       const startAt = new Date(Date.now() + 24 * HOUR);
       const r = await reservation('CONFIRMADA', { startAt });
       const files = await storedPhotos();
@@ -288,7 +304,7 @@ describe('QA-08.1: entrega y prevención de entregas indebidas', () => {
     });
 
     it.each(['PENDIENTE', 'RECHAZADA', 'CANCELADA', 'COMPLETADA'] as const)(
-      'E06: una reserva %s responde 409 y no se inicia',
+      'AC3: una reserva %s (no CONFIRMADA) responde 409 y no se inicia (E06)',
       async (status) => {
         const r = await reservation(status);
         const files = await storedPhotos();
@@ -302,7 +318,7 @@ describe('QA-08.1: entrega y prevención de entregas indebidas', () => {
       },
     );
 
-    it('E07: una segunda entrega responde 409, conserva la primera y no guarda fotos nuevas', async () => {
+    it('AC4: una segunda entrega responde 409, conserva la primera y no guarda fotos nuevas (E07)', async () => {
       const r = await reservation();
       await deliver(r.id, landlord, { fotos: [JPG] }).expect(201);
       const files = await storedPhotos();
@@ -341,7 +357,7 @@ describe('QA-08.1: entrega y prevención de entregas indebidas', () => {
       expect((await storedPhotos()).length).toBe(files.length + 2);
     });
 
-    it('E09: otro arrendador recibe 403 y la reserva ajena no se inicia', async () => {
+    it('AC3: otro arrendador recibe 403 y la reserva ajena no se inicia (E09)', async () => {
       const r = await reservation();
       const files = await storedPhotos();
 
