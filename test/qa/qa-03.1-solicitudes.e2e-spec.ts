@@ -225,7 +225,7 @@ describe('H03. Solicitar una reserva', () => {
       );
     });
 
-    it('AC5: un período que se cruza con una CONFIRMADA o EN_CURSO da 409 y no guarda nada (S03)', async () => {
+    it('AC4: un período que se cruza con una CONFIRMADA o EN_CURSO da 409 y no guarda nada (S03)', async () => {
       for (const status of ['CONFIRMADA', 'EN_CURSO'] as const) {
         const id = await newListing();
         const day = freshDay();
@@ -313,7 +313,7 @@ describe('H03. Solicitar una reserva', () => {
   });
 
   describe('fechas', () => {
-    it('AC4: un inicio que ya pasó da 400 FECHA_PASADA y no guarda nada (S08)', async () => {
+    it('AC5: un inicio que ya pasó da 400 FECHA_PASADA y no guarda nada (S08)', async () => {
       const id = await newListing();
       const antes = await avisosDe(landlord.userId);
 
@@ -502,7 +502,7 @@ describe('H03. Solicitar una reserva', () => {
   });
 
   describe('aviso al arrendador', () => {
-    it('AC7: el arrendador recibe «Nueva solicitud de reserva» con el bien y las fechas; nadie más (S18)', async () => {
+    it('AC6: el arrendador recibe «Nueva solicitud de reserva» con el bien y las fechas; nadie más (S18)', async () => {
       const id = await newListing();
       const day = freshDay();
       const antes = {
@@ -561,7 +561,7 @@ describe('H03. Solicitar una reserva', () => {
   });
 
   describe('verificación de identidad', () => {
-    it('AC6: si el bien la exige, sin verificación o con una PENDIENTE da 422 y no guarda (S20)', async () => {
+    it('AC7: si el bien la exige, sin verificación o con una PENDIENTE da 422 y no guarda (S20)', async () => {
       const id = await newListing({ requiresVerification: true });
       const day = freshDay();
 
