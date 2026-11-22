@@ -9,6 +9,9 @@ import { resolveTestDatabaseUrl } from '../helpers/test-database.js';
 /**
  * QA-02.1 (MP4-43): búsqueda por palabra clave en el catálogo (H02).
  *
+ * Los casos que prueban un criterio de aceptación de H02 empiezan con «ACn:» y
+ * conservan su id al final, entre paréntesis.
+ *
  * Cada caso tiene un id (C01, C02...) que se repite en la evidencia de
  * docs/qa/QA-02.1-busqueda.md. Se compara lo que responde
  * `GET /publicaciones` con las publicaciones que hay en la base.
@@ -16,7 +19,7 @@ import { resolveTestDatabaseUrl } from '../helpers/test-database.js';
  * Otras pruebas crean publicaciones en la misma base, así que cada búsqueda
  * lleva una marca única (`tag`) y solo ve las de esta prueba.
  */
-describe('QA-02.1: búsqueda por palabra clave', () => {
+describe('H02. Buscar equipos y espacios por palabra clave', () => {
   const email = `qa-02.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   const tag = `qa${randomUUID().replaceAll('-', '').slice(0, 10)}`;
@@ -122,12 +125,12 @@ describe('QA-02.1: búsqueda por palabra clave', () => {
 
   describe('criterio 1: coincide en el nombre o la descripción, sin importar mayúsculas ni tildes', () => {
     it.each([
-      ['C01', 'camara'],
-      ['C02', 'CÁMARA'],
-      ['C03', 'cÁmArA'],
+      ['camara', 'C01'],
+      ['CÁMARA', 'C02'],
+      ['cÁmArA', 'C03'],
     ])(
-      '%s: «%s» encuentra "Cámara" y "CÁMARA" en el nombre',
-      async (_id, texto) => {
+      'AC1: «%s» encuentra "Cámara" y "CÁMARA" en el nombre (%s)',
+      async (texto) => {
         const { body } = await list({ buscar: `${texto}` }).expect(200);
 
         // Sin la marca la búsqueda ve toda la base: basta con que estén las dos.
@@ -141,7 +144,7 @@ describe('QA-02.1: búsqueda por palabra clave', () => {
       },
     );
 
-    it('C04: encuentra por la descripción', async () => {
+    it('AC1: encuentra por la descripción (C04)', async () => {
       const { body } = await list({ buscar: `camara ${tag}` }).expect(200);
 
       expect(names(body as Page)).toEqual(['Trípode']);
@@ -191,7 +194,7 @@ describe('QA-02.1: búsqueda por palabra clave', () => {
   });
 
   describe('criterio 2: más recientes primero, de 12 en 12', () => {
-    it('C08: los resultados salen de la más reciente a la más antigua', async () => {
+    it('AC2: los resultados salen de la más reciente a la más antigua (C08)', async () => {
       const { body } = await list({ buscar: tag }).expect(200);
 
       expect(names(body as Page)).toEqual([
@@ -202,7 +205,7 @@ describe('QA-02.1: búsqueda por palabra clave', () => {
       ]);
     });
 
-    it('C09: con 13 resultados, la página 1 trae 12 y la página 2 trae 1', async () => {
+    it('AC2: con 13 resultados, la página 1 trae 12 y la página 2 trae 1 (C09)', async () => {
       const t = `trece${tag}`;
       for (let i = 1; i <= 13; i++) {
         await create(`Silla ${i} ${t}`, {
@@ -243,7 +246,7 @@ describe('QA-02.1: búsqueda por palabra clave', () => {
   });
 
   describe('criterio 3: sin coincidencias', () => {
-    it('C12: responde 200 con la lista vacía y total 0', async () => {
+    it('AC3: responde 200 con la lista vacía y total 0 (C12)', async () => {
       const { body } = await list({ buscar: `unicornio-${tag}` }).expect(200);
 
       expect(body).toEqual({ items: [], page: 1, total: 0 });
@@ -261,7 +264,7 @@ describe('QA-02.1: búsqueda por palabra clave', () => {
   });
 
   describe('criterio 4: las desactivadas no aparecen', () => {
-    it('C14: no sale al buscarla por su nombre ni al recorrer el catálogo', async () => {
+    it('AC4: no sale al buscarla por su nombre ni al recorrer el catálogo (C14)', async () => {
       const byName = await list({ buscar: `desactivada ${tag}` }).expect(200);
       expect(byName.body).toEqual({ items: [], page: 1, total: 0 });
 
@@ -269,7 +272,7 @@ describe('QA-02.1: búsqueda por palabra clave', () => {
       expect(names(all.body as Page)).not.toContain('Cámara desactivada');
     });
 
-    it('C15: al desactivar una publicación deja de salir, y vuelve al reactivarla', async () => {
+    it('AC4: al desactivar una publicación deja de salir, y vuelve al reactivarla (C15)', async () => {
       const where = { name: `Trípode ${tag}` };
       const before = await list({ buscar: `tripode ${tag}` }).expect(200);
       expect((before.body as Page).total).toBe(1);
