@@ -13,7 +13,9 @@ import { resolveTestDatabaseUrl } from '../helpers/test-database.js';
  * (H22).
  *
  * Cada caso tiene un id (O01, O02...) que se repite en la evidencia de
- * docs/qa/QA-22.1-ocupacion.md. Cada bien se arma con reservas y bloqueos
+ * docs/qa/QA-22.1-ocupacion.md. Los casos que prueban un criterio de
+ * aceptación de H22 empiezan con «ACn:» y conservan su id al final, entre
+ * paréntesis. Cada bien se arma con reservas y bloqueos
  * creados directo en la base, y la tasa esperada se calcula a mano en el
  * caso. Los bloqueos se crean en la base porque BE-14.1 todavía no está en
  * main. Fechas en UTC: El Salvador es UTC-6, así que la medianoche local del
@@ -31,7 +33,7 @@ type Item = {
   tasaOcupacion: number;
 };
 
-describe('QA-22.1: tasa de ocupación y permisos', () => {
+describe('H22. Ver la tasa de ocupación de cada bien', () => {
   const email = `qa-22.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   let app: INestApplication<App>;
@@ -161,7 +163,7 @@ describe('QA-22.1: tasa de ocupación y permisos', () => {
   });
 
   describe('fórmula', () => {
-    it('O01: coincide con el cálculo manual (6 ocupados / 28 disponibles = 21.4)', async () => {
+    it('AC1: la tasa de cada bien coincide con el cálculo manual (6 ocupados / 28 disponibles = 21.4, un decimal) (O01)', async () => {
       const { owner, id } = await scenario('Taladro');
       await reserve(id, nov(3), nov(9)); // días 3 a 8
       await block(id, nov(20), nov(22)); // días 20 y 21
@@ -197,7 +199,7 @@ describe('QA-22.1: tasa de ocupación y permisos', () => {
       },
     );
 
-    it('O03: un bien sin reservas da 0', async () => {
+    it('AC4: un bien sin reservas en el período muestra 0 % (O03)', async () => {
       const { owner, id } = await scenario();
       expect(await itemOf(owner, id)).toMatchObject({
         diasOcupados: 0,
@@ -220,7 +222,7 @@ describe('QA-22.1: tasa de ocupación y permisos', () => {
   });
 
   describe('estados, traslapes y bloqueos', () => {
-    it('O05: solo cuentan CONFIRMADA, EN_CURSO y COMPLETADA', async () => {
+    it('AC3: las reservas PENDIENTE, RECHAZADA y CANCELADA no suman días ocupados; solo CONFIRMADA, EN_CURSO y COMPLETADA (O05)', async () => {
       const { owner, id } = await scenario();
       const statuses: ReservationStatus[] = [
         'PENDIENTE',
@@ -252,7 +254,7 @@ describe('QA-22.1: tasa de ocupación y permisos', () => {
       });
     });
 
-    it('O07: un día bloqueado no cuenta como ocupado aunque tenga reserva', async () => {
+    it('AC2: los días bloqueados no cuentan como disponibles ni como ocupados, aunque tengan reserva (O07)', async () => {
       const { owner, id } = await scenario();
       await reserve(id, nov(1), nov(11)); // días 1 a 10
       await block(id, nov(5), nov(7)); // días 5 y 6
@@ -334,7 +336,7 @@ describe('QA-22.1: tasa de ocupación y permisos', () => {
   });
 
   describe('permisos', () => {
-    it('O16: cada arrendador ve solo sus bienes, incluidos los inactivos', async () => {
+    it('AC5: cada arrendador ve solo sus bienes, incluidos los inactivos (O16)', async () => {
       const a = await account('ARRENDADOR');
       const b = await account('ARRENDADOR');
       const activo = await listing(a, 'Activo');
@@ -352,7 +354,7 @@ describe('QA-22.1: tasa de ocupación y permisos', () => {
       ]);
     });
 
-    it('O17: el arrendatario recibe 403 aunque tenga reservas', async () => {
+    it('AC6: el arrendatario no puede abrir el reporte: 403 aunque tenga reservas (O17)', async () => {
       const { id } = await scenario();
       await reserve(id, nov(1), nov(5));
       const { body } = await report(tenant).expect(403);
