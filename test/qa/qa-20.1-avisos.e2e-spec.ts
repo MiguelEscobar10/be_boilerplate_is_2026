@@ -27,7 +27,9 @@ import { createTestPrismaClient } from '../helpers/test-database.js';
 /**
  * QA-20.1 (MP4-114): pruebas del servicio de avisos y su contrato (H20).
  *
- * Los ids (C01 a C21) se repiten en docs/qa/QA-20.1-avisos.md. Cada caso llama
+ * Los ids (C01 a C21) se repiten en docs/qa/QA-20.1-avisos.md. Los casos que
+ * prueban un criterio de aceptación de H20 empiezan con «ACn:» y conservan su
+ * id al final, entre paréntesis. Cada caso llama
  * a AvisosService como lo haría otro módulo y revisa el resultado en la base y
  * en la bandeja de H10 (GET /api/v1/notificaciones con el JWT del destinatario,
  * obtenido con un login real).
@@ -50,7 +52,7 @@ interface ItemBandeja {
 
 type Quien = 'a' | 'b';
 
-describe('QA-20.1: servicio de avisos y su contrato', () => {
+describe('H20. Servicio de avisos', () => {
   const suffix = `qa-20.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   let app: INestApplication<App>;
@@ -192,7 +194,7 @@ describe('QA-20.1: servicio de avisos y su contrato', () => {
   });
 
   describe('avisos válidos', () => {
-    it('C01: aviso válido con referencia', async () => {
+    it('AC1: un aviso válido se registra y aparece no leído en la bandeja de su destinatario (C01)', async () => {
       const entrada = aviso();
       const item = await esperarEnBandeja(() => avisos.notificar(entrada));
       expect(item).toMatchObject({
@@ -203,7 +205,7 @@ describe('QA-20.1: servicio de avisos y su contrato', () => {
       });
     });
 
-    it('C02: aviso válido sin referencia', async () => {
+    it('AC2: la referencia es opcional: sin ella el aviso se registra con referencia null (C02)', async () => {
       const item = await esperarEnBandeja(() =>
         avisos.notificar(
           aviso({ titulo: 'Mensaje nuevo', referencia: undefined }),
@@ -230,14 +232,14 @@ describe('QA-20.1: servicio de avisos y su contrato', () => {
   });
 
   describe('avisos inválidos: AvisoInvalidoError y ninguna fila nueva', () => {
-    it('C05: sin destinatario', async () => {
+    it('AC4: sin destinatario no se registra: AvisoInvalidoError y ninguna fila (C05)', async () => {
       await esperarInvalido(
         aviso({ destinatarioId: undefined as never }),
         'destinatarioId',
       );
     });
 
-    it('C06: sin título', async () => {
+    it('AC4: sin título no se registra: AvisoInvalidoError y ninguna fila (C06)', async () => {
       await esperarInvalido(aviso({ titulo: undefined as never }), 'titulo');
     });
 
@@ -257,14 +259,14 @@ describe('QA-20.1: servicio de avisos y su contrato', () => {
       await esperarInvalido(aviso({ mensaje: 'm'.repeat(501) }), 'mensaje');
     });
 
-    it('C11: módulo de origen fuera de la lista', async () => {
+    it('AC5: un módulo de origen fuera de la lista no se registra: AvisoInvalidoError y ninguna fila (C11)', async () => {
       await esperarInvalido(
         aviso({ moduloOrigen: 'INVENTADO' as ModuloOrigen }),
         'moduloOrigen',
       );
     });
 
-    it('C12: destinatario inexistente', async () => {
+    it('AC5: un destinatario inexistente no se registra: AvisoInvalidoError y ninguna fila (C12)', async () => {
       await esperarInvalido(
         aviso({ destinatarioId: inexistente }),
         'destinatarioId',
@@ -293,7 +295,7 @@ describe('QA-20.1: servicio de avisos y su contrato', () => {
   });
 
   describe('ejemplos del contrato contra la base real', () => {
-    it('C14: BE-03.1 solicitud nueva llega al arrendador', async () => {
+    it('AC3: contrato común, ejemplo BE-03.1: la solicitud nueva llega al arrendador (C14)', async () => {
       const reserva = {
         id: randomUUID(),
         arrendadorId: user.a.id,
@@ -309,7 +311,7 @@ describe('QA-20.1: servicio de avisos y su contrato', () => {
       });
     });
 
-    it('C15: BE-04.1 reserva CONFIRMADA y RECHAZADA (motivo de 500) llegan al arrendatario', async () => {
+    it('AC3: contrato común, ejemplo BE-04.1: reserva CONFIRMADA y RECHAZADA (motivo de 500) llegan al arrendatario (C15)', async () => {
       const reserva = {
         id: randomUUID(),
         arrendatarioId: user.b.id,
@@ -342,7 +344,7 @@ describe('QA-20.1: servicio de avisos y su contrato', () => {
       expect(Array.from(rechazada.mensaje).length).toBeLessThanOrEqual(500);
     });
 
-    it('C16: BE-05.1 pago APROBADO avisa al arrendatario y al arrendador', async () => {
+    it('AC3: contrato común, ejemplo BE-05.1: pago APROBADO avisa al arrendatario y al arrendador (C16)', async () => {
       const pago = {
         id: randomUUID(),
         arrendatarioId: user.b.id,
@@ -376,7 +378,7 @@ describe('QA-20.1: servicio de avisos y su contrato', () => {
       expect(await noLeidas('b')).toBe(conteo.b + 1);
     });
 
-    it('C17: BE-05.1 pago RECHAZADO llega al arrendatario', async () => {
+    it('AC3: contrato común, ejemplo BE-05.1: pago RECHAZADO llega al arrendatario (C17)', async () => {
       const pago = {
         id: randomUUID(),
         arrendatarioId: user.b.id,
@@ -395,7 +397,7 @@ describe('QA-20.1: servicio de avisos y su contrato', () => {
       });
     });
 
-    it('C18: BE-09.2 garantía resuelta llega al arrendatario', async () => {
+    it('AC3: contrato común, ejemplo BE-09.2: garantía resuelta llega al arrendatario (C18)', async () => {
       const garantia = {
         reservaId: randomUUID(),
         arrendatarioId: user.b.id,
@@ -416,7 +418,7 @@ describe('QA-20.1: servicio de avisos y su contrato', () => {
       });
     });
 
-    it('C19: BE-15.1 mensaje nuevo llega al otro participante', async () => {
+    it('AC3: contrato común, ejemplo BE-15.1: mensaje nuevo llega al otro participante (C19)', async () => {
       const mensaje = {
         id: randomUUID(),
         destinatarioId: user.a.id,
