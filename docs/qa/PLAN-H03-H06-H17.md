@@ -77,7 +77,7 @@ como nombre (CP-319a.png, CP-319b.png…).
 | CP-318 | H17 | Integración | Negativo | H17-AC6 | Puntajes fuera de rango o comentario de más de 500 caracteres | No ejecutado |
 | CP-319 | H03 | Sistema | Positivo | H03-AC1, H03-AC2 | Solicitar una reserva desde el calendario y ver su resumen | Pasó |
 | CP-320 | H03 | Sistema | Negativo | H03-AC4, H03-AC5 | El calendario no deja elegir días pasados ni ocupados | Pasó |
-| CP-321 | H03 | Sistema | Negativo | H03-AC7 | Sin verificación, la solicitud no se envía y se explica el motivo | No ejecutado |
+| CP-321 | H03 | Sistema | Negativo | H03-AC7 | Sin verificación, la solicitud no se envía y se explica el motivo | Pasó |
 | CP-322 | H03 | Sistema | Positivo | H03-AC6 | El arrendador ve el aviso de la nueva solicitud en su bandeja | Pasó |
 | CP-323 | H06 | Sistema | Positivo | H06-AC1 | Ver el estado del pago en el detalle de la reserva | Pasó |
 | CP-324 | H06 | Sistema | Negativo | H06-AC3 | Reserva sin pagos muestra el aviso de que aún no hay pago | Pasó |
