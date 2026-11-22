@@ -9,6 +9,9 @@ import { resolveTestDatabaseUrl } from '../helpers/test-database.js';
 /**
  * QA-09.1 (MP4-80): devolución, depósito de garantía y cierre (H09).
  *
+ * Los casos que prueban un criterio de aceptación de H09 empiezan con «ACn:» y
+ * conservan su id al final, entre paréntesis.
+ *
  * Cada caso tiene un id (C01, C02...) que se repite en la evidencia de
  * docs/qa/QA-09.1-devolucion.md. Se compara la respuesta HTTP con lo que
  * queda en la base (devolución, resolución, estado de la reserva) y, para el
@@ -22,7 +25,7 @@ const HOUR = 3_600_000;
 
 type Session = { token: string; userId: string };
 
-describe('QA-09.1: devolución, depósito y cierre', () => {
+describe('H09. Registrar la devolución y resolver la garantía', () => {
   const email = `qa-09.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   const BIEN = 'Proyector QA-09.1';
@@ -211,7 +214,7 @@ describe('QA-09.1: devolución, depósito y cierre', () => {
   });
 
   describe('criterio 1: registrar la devolución de una reserva EN_CURSO', () => {
-    it('C01: sin observaciones guarda la fecha y el estado final, y la reserva sigue EN_CURSO', async () => {
+    it('AC1: sin observaciones guarda la fecha y el estado final, y la reserva sigue EN_CURSO (C01)', async () => {
       const id = await newReservation();
 
       const { body } = await devolver(id, SIN_DANOS).expect(201);
@@ -228,7 +231,7 @@ describe('QA-09.1: devolución, depósito y cierre', () => {
       expect(await estado(id)).toBe('EN_CURSO');
     });
 
-    it('C02: con observaciones guarda los daños y los dos participantes la consultan', async () => {
+    it('AC1: con observaciones guarda los daños y los dos participantes la consultan (C02)', async () => {
       const id = await newReservation();
 
       await devolver(id, CON_DANOS).expect(201);
@@ -282,7 +285,7 @@ describe('QA-09.1: devolución, depósito y cierre', () => {
   });
 
   describe('criterio 2: sin daños ni faltantes, la garantía queda LIBERADA completa', () => {
-    it('C06: devolución SIN_OBSERVACIONES y retención 0: libera los $20.00', async () => {
+    it('AC2: devolución SIN_OBSERVACIONES y retención 0: libera los $20.00 (C06)', async () => {
       const id = await devuelta(SIN_DANOS);
 
       const { body } = await resolver(id, { montoRetenido: 0 }).expect(200);
@@ -318,7 +321,7 @@ describe('QA-09.1: devolución, depósito y cierre', () => {
   });
 
   describe('criterio 3: con daños, retener pide monto y motivo y queda RETENIDA', () => {
-    it('C08: retención 5 de un depósito de 20 produce liberación 15 y queda RETENIDA', async () => {
+    it('AC3: retención 5 de un depósito de 20 produce liberación 15 y queda RETENIDA (C08)', async () => {
       const id = await devuelta();
 
       const { body } = await resolver(id, {
@@ -342,7 +345,7 @@ describe('QA-09.1: devolución, depósito y cierre', () => {
       expect(saved.reason).toBe('Daño reportado');
     });
 
-    it('C09: retener sin motivo, o con el motivo en blanco, es 400 y no guarda', async () => {
+    it('AC3: retener sin motivo, o con el motivo en blanco, es 400 y no guarda (C09)', async () => {
       const id = await devuelta();
 
       await resolver(id, { montoRetenido: 5 }).expect(400);
@@ -379,7 +382,7 @@ describe('QA-09.1: devolución, depósito y cierre', () => {
   });
 
   describe('criterio 4: lo que el sistema no deja resolver', () => {
-    it('C12: retención 25 de un depósito de 20 es rechazada con su mensaje', async () => {
+    it('AC4: retención 25 de un depósito de 20 es rechazada con su mensaje (C12)', async () => {
       const id = await devuelta();
 
       const { body } = await resolver(id, {
@@ -394,7 +397,7 @@ describe('QA-09.1: devolución, depósito y cierre', () => {
       await sinResolver(id);
     });
 
-    it('C13: sin devolución registrada responde «Primero registra la devolución»', async () => {
+    it('AC4: sin devolución registrada responde «Primero registra la devolución» (C13)', async () => {
       const id = await newReservation();
 
       const { body } = await resolver(id, { montoRetenido: 0 }).expect(422);
@@ -415,7 +418,7 @@ describe('QA-09.1: devolución, depósito y cierre', () => {
   });
 
   describe('criterio 5: con devolución y garantía, la reserva aparece COMPLETADA', () => {
-    it('C15: pasa de EN_CURSO a COMPLETADA solo al resolver, y así la ven los dos', async () => {
+    it('AC5: pasa de EN_CURSO a COMPLETADA solo al resolver, y así la ven los dos (C15)', async () => {
       const id = await newReservation();
       expect((await garantia(id).expect(200)).body).toMatchObject({
         estadoGarantia: 'PENDIENTE',
@@ -467,7 +470,7 @@ describe('QA-09.1: devolución, depósito y cierre', () => {
   });
 
   describe('criterio 6: el arrendatario recibe el aviso', () => {
-    it('C18: «Depósito de garantía resuelto» llega a su bandeja con el bien, lo liberado y lo retenido', async () => {
+    it('AC6: «Depósito de garantía resuelto» llega a su bandeja con el bien, lo liberado y lo retenido (C18)', async () => {
       const id = await devuelta();
 
       await resolver(id, { montoRetenido: 5, motivo: 'Daño' }).expect(200);
