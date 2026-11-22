@@ -48,60 +48,56 @@ no cambia el promedio, segunda calificación en la base).
 
 Resultado: backend 66/66 en las tres suites; frontend 593 pruebas pasan, ninguna falla.
 
-## 2. Casos manuales de integración (CP-301 en adelante)
+## 2. Casos del plan (CP-301 a CP-334)
 
-Evidencia en `docs/qa/evidencias/plan-H03-H06-H17/`.
+Los casos completos (precondiciones, datos, pasos, resultado esperado y real,
+evidencia) están en la hoja Casos del Excel del plan. Aquí va el índice.
+Las capturas están en `docs/qa/evidencias/plan-H03-H06-H17/`, con el id del caso
+como nombre (CP-319a.png, CP-319b.png…).
 
-| Id | Criterio | Pasos | Esperado | Resultado |
-|---|---|---|---|---|
-| CP-301 | H03 AC1, AC2 | Arrendatario: abrir el Taladro percutor, elegir 25 y 26 nov, «Solicitar reserva» | Solicitud PENDIENTE; período 25 nov 00:00 – 27 nov 00:00; alquiler $16.00 (2 días × $8.00); depósito $20.00 aparte | **Pasa.** Solicitud `1bd25f9a-b092-4c30-b623-58dd816ff432`. Capturas `CP-301-*.png` |
-| CP-302 | H03 AC3 | Elegir un último día anterior al primero | No se forma un periodo inválido | Pendiente |
-| CP-303 | H03 AC5 | Mirar los días anteriores a hoy en el calendario | Aparecen como «pasado» y no se pueden elegir | **Pasa**, visto en la captura de CP-301 |
-| CP-304 | H03 AC4 | Mirar el 22 y 23 nov del taladro (reserva confirmada) | Aparecen como ocupados y no se pueden elegir | **Pasa**, visto en la captura de CP-301 |
-| CP-305 | H03 AC7 | Con un arrendatario sin verificar, solicitar un bien que la exige | Aviso de verificación con enlace a /verificacion; no se crea la solicitud | Pendiente (falta cuenta sin verificar) |
-| CP-306 | H03 AC6 | Arrendador: abrir la bandeja tras CP-301 | Aviso «Nueva solicitud de reserva» con el bien y las fechas | Pendiente |
-| CP-307 | H03 negativo | Doble clic en «Solicitar reserva» | Una sola solicitud | Pendiente |
-| CP-308 | H03 negativo | Sin sesión, abrir una publicación y solicitar | Redirige al login | Pendiente |
-| CP-311 | H06 AC1 | Abrir `/reservas/<id>/pago` de una reserva pagada | Monto, fecha, número de reserva y estado | Pendiente |
-| CP-312 | H06 AC2 | Reserva con un pago rechazado y otro aprobado, pulsar «Actualizar estado» | Se ve el aprobado | Pendiente |
-| CP-313 | H06 AC3 | Reserva sin pagos | «Aún no hay un pago registrado para esta reserva» | Pendiente |
-| CP-314 | H06 AC4 | Abrir la reserva de otro arrendatario | «Reserva no disponible», sin datos | Pendiente |
-| CP-315 | H06 negativo | Reserva con pago rechazado | Estado RECHAZADO con el motivo | Pendiente |
-| CP-321 | H17 AC1 | Reserva COMPLETADA sin calificar: «Calificar», dos escalas y comentario | Se guarda y la sección pasa a «Ya calificaste» | Pendiente |
-| CP-322 | H17 AC2 | Abrir el detalle del bien calificado | Promedios «N.N de 5» y total de calificaciones | Pendiente |
-| CP-323 | H17 AC3 | Reserva que no está COMPLETADA | No se ofrece calificar | Pendiente |
-| CP-324 | H17 AC4 | Calificar una reserva ya calificada | No se ofrece calificar de nuevo | Pendiente |
-| CP-325 | H17 AC5 | Abrir la reserva de otro arrendatario | «Reserva no disponible» | Pendiente |
-| CP-326 | H17 AC6 | Enviar sin puntajes y con comentario de más de 500 | Avisos de validación; nada se guarda | Pendiente |
-| CP-327 | H17 negativo | Doble clic en «Enviar calificación» | Una sola calificación | Pendiente |
+| Id | Historia | Nivel | Tipo | Criterios | Caso | Estado |
+|---|---|---|---|---|---|---|
+| CP-301 | H03 | Componente | Mixto | H03-AC1, H03-AC2, H03-AC3, H03-AC4, H03-AC5, H03-AC6, H03-AC7 | Suite de componente H03 (backend y frontend) | Pasó |
+| CP-302 | H06 | Componente | Mixto | H06-AC1, H06-AC2, H06-AC3, H06-AC4 | Suite de componente H06 (backend y frontend) | Pasó |
+| CP-303 | H17 | Componente | Mixto | H17-AC1, H17-AC2, H17-AC3, H17-AC4, H17-AC5, H17-AC6 | Suite de componente H17 (backend y frontend) | Pasó |
+| CP-304 | H03 | Integración | Positivo | H03-AC1, H03-AC2 | Solicitud válida queda PENDIENTE y el detalle trae período, costo y depósito | No ejecutado |
+| CP-305 | H03 | Integración | Negativo | H03-AC3, H03-AC5 | Fechas inválidas: fin anterior o igual al inicio, e inicio en el pasado | No ejecutado |
+| CP-306 | H03 | Integración | Negativo | H03-AC4 | Período que se cruza con una reserva CONFIRMADA da 409 | No ejecutado |
+| CP-307 | H03 | Integración | Positivo | H03-AC6 | El arrendador recibe el aviso «Nueva solicitud de reserva» | No ejecutado |
+| CP-308 | H03 | Integración | Negativo | H03-AC7 | Sin verificación, un bien que la exige rechaza la solicitud | No ejecutado |
+| CP-309 | H06 | Integración | Positivo | H06-AC1 | Consultar el pago de una reserva propia | No ejecutado |
+| CP-310 | H06 | Integración | Positivo | H06-AC2 | Tras un rechazo y un pago aprobado se devuelve el más reciente | No ejecutado |
+| CP-311 | H06 | Integración | Negativo | H06-AC3 | Reserva sin pagos: aún no hay pago registrado | No ejecutado |
+| CP-312 | H06 | Integración | Negativo | H06-AC4 | Reserva de otro arrendatario: no se puede ver su pago | No ejecutado |
+| CP-313 | H17 | Integración | Positivo | H17-AC1 | Calificar una reserva COMPLETADA | No ejecutado |
+| CP-314 | H17 | Integración | Positivo | H17-AC2 | El promedio del bien y del arrendador se ve en el detalle de la publicación | No ejecutado |
+| CP-315 | H17 | Integración | Negativo | H17-AC3 | Reserva que no está COMPLETADA no se puede calificar | No ejecutado |
+| CP-316 | H17 | Integración | Negativo | H17-AC4 | Calificar dos veces la misma reserva da 409 | No ejecutado |
+| CP-317 | H17 | Integración | Negativo | H17-AC5 | Reserva de otro arrendatario: no se puede calificar | No ejecutado |
+| CP-318 | H17 | Integración | Negativo | H17-AC6 | Puntajes fuera de rango o comentario de más de 500 caracteres | No ejecutado |
+| CP-319 | H03 | Sistema | Positivo | H03-AC1, H03-AC2 | Solicitar una reserva desde el calendario y ver su resumen | Pasó |
+| CP-320 | H03 | Sistema | Negativo | H03-AC4, H03-AC5 | El calendario no deja elegir días pasados ni ocupados | Pasó |
+| CP-321 | H03 | Sistema | Negativo | H03-AC7 | Sin verificación, la solicitud no se envía y se explica el motivo | No ejecutado |
+| CP-322 | H03 | Sistema | Positivo | H03-AC6 | El arrendador ve el aviso de la nueva solicitud en su bandeja | No ejecutado |
+| CP-323 | H06 | Sistema | Positivo | H06-AC1 | Ver el estado del pago en el detalle de la reserva | No ejecutado |
+| CP-324 | H06 | Sistema | Negativo | H06-AC3 | Reserva sin pagos muestra el aviso de que aún no hay pago | No ejecutado |
+| CP-325 | H17 | Sistema | Positivo | H17-AC1 | Calificar el bien y al arrendador desde la reserva | No ejecutado |
+| CP-326 | H17 | Sistema | Negativo | H17-AC6 | El formulario valida los puntajes y el comentario | No ejecutado |
+| CP-327 | H17 | Sistema | Positivo | H17-AC2 | Los promedios aparecen en el detalle de la publicación | No ejecutado |
+| CP-328 | H17 | Sistema | Negativo | H17-AC3 | Una reserva que no está COMPLETADA no ofrece calificar | No ejecutado |
+| CP-329 | H03 | Aceptación | Positivo | H03-AC1, H03-AC2, H03-AC6 | Aceptación: pedir una reserva y que el arrendador se entere | No ejecutado |
+| CP-330 | H03 | Aceptación | Negativo | H03-AC3, H03-AC4, H03-AC5, H03-AC7 | Aceptación: solicitudes que el sistema debe rechazar | No ejecutado |
+| CP-331 | H06 | Aceptación | Positivo | H06-AC1, H06-AC2 | Aceptación: consultar el estado de mis pagos | No ejecutado |
+| CP-332 | H06 | Aceptación | Negativo | H06-AC3, H06-AC4 | Aceptación: sin pagos y reserva ajena | No ejecutado |
+| CP-333 | H17 | Aceptación | Positivo | H17-AC1, H17-AC2 | Aceptación: calificar una reserva completada | No ejecutado |
+| CP-334 | H17 | Aceptación | Negativo | H17-AC3, H17-AC4, H17-AC5, H17-AC6 | Aceptación: calificaciones que el sistema debe rechazar | No ejecutado |
 
-Las reservas del ambiente solo se abren por id o desde las notificaciones, y
-la sesión expira a los pocos minutos, por eso la mayoría sigue pendiente.
-
-## 3. Casos de aceptación (los ejecuta Ricardo)
-
-Un caso por criterio, con las mismas cuentas del seed. Cada uno se marca como
-Pasa o Falla con su captura.
-
-| Id | Criterio | Qué debe comprobar quien acepta |
-|---|---|---|
-| CA-301 | H03 AC1 | Que pedir fechas libres deja la solicitud PENDIENTE y sin apartar las fechas |
-| CA-302 | H03 AC2 | Que el detalle muestra estado, fechas, costo del alquiler y depósito |
-| CA-303 | H03 AC3 | Que no se puede pedir un fin anterior al inicio |
-| CA-304 | H03 AC4 | Que no se puede pedir un periodo ocupado |
-| CA-305 | H03 AC5 | Que no se puede pedir un día que ya pasó |
-| CA-306 | H03 AC6 | Que el arrendador recibe el aviso de la nueva solicitud |
-| CA-307 | H03 AC7 | Que sin verificación el sistema lo avisa y ofrece verificar |
-| CA-311 | H06 AC1 | Que el estado del pago muestra monto, fecha, número de reserva y estado |
-| CA-312 | H06 AC2 | Que tras un reintento se ve el pago más reciente |
-| CA-313 | H06 AC3 | Que sin pagos aparece el aviso de que aún no hay pago |
-| CA-314 | H06 AC4 | Que una reserva ajena no muestra ningún pago |
-| CA-321 | H17 AC1 | Que se puede calificar el bien y al arrendador con comentario |
-| CA-322 | H17 AC2 | Que el promedio del bien y del arrendador se ve con un decimal |
-| CA-323 | H17 AC3 | Que una reserva no completada no se puede calificar |
-| CA-324 | H17 AC4 | Que no se puede calificar dos veces la misma reserva |
-| CA-325 | H17 AC5 | Que una reserva ajena no se puede calificar |
-| CA-326 | H17 AC6 | Que los puntajes fuera de rango y los comentarios largos se rechazan |
+Los casos de Integración se ejecutan con Swagger en el ambiente desplegado, los
+de Sistema desde el navegador y los de Aceptación los ejecuta Ricardo Pineda.
+Los de Sistema y Aceptación usan las reservas del seed (pendiente, confirmada y
+completada). Hasta ahora están ejecutados los tres de Componente, CP-319 y CP-320;
+el resto sigue como «No ejecutado». La sesión del ambiente desplegado expira a
+los pocos minutos, por eso la ejecución manual se hace por tandas.
 
 ## 4. Defectos y observaciones
 
