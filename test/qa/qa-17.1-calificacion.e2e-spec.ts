@@ -35,7 +35,7 @@ type Estado =
   | 'CANCELADA'
   | 'COMPLETADA';
 
-describe('QA-17.1: calificar el bien y al arrendador', () => {
+describe('H17. Calificar el bien y al arrendador', () => {
   const sufijo = `qa-17.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   let app: INestApplication<App>;
@@ -160,7 +160,7 @@ describe('QA-17.1: calificar el bien y al arrendador', () => {
 
   afterEach(limpiar);
 
-  it('R01 califica una reserva COMPLETADA propia y guarda lo de la reserva', async () => {
+  it('AC1: califica una reserva COMPLETADA propia y guarda lo de la reserva (R01)', async () => {
     const id = await reserva(taladro);
 
     const res = await calificar(id, {
@@ -213,7 +213,7 @@ describe('QA-17.1: calificar el bien y al arrendador', () => {
     'EN_CURSO',
     'RECHAZADA',
     'CANCELADA',
-  ] as const)('R03 la reserva %s da 422 y no guarda nada', async (estado) => {
+  ] as const)('AC3: la reserva %s da 422 y no guarda nada (R03)', async (estado) => {
     const id = await reserva(taladro, estado);
 
     const res = await calificar(id);
@@ -223,7 +223,7 @@ describe('QA-17.1: calificar el bien y al arrendador', () => {
     expect(await filas(id)).toHaveLength(0);
   });
 
-  it('R04 calificar otra vez da 409 y conserva la primera', async () => {
+  it('AC4: calificar otra vez da 409 y conserva la primera (R04)', async () => {
     const id = await reserva(taladro);
     await calificar(id, { puntajeBien: 5, puntajeArrendador: 4 });
 
@@ -253,7 +253,7 @@ describe('QA-17.1: calificar el bien y al arrendador', () => {
     }
   });
 
-  it('R06 reserva de otro arrendatario, de otro estado e inexistente: el mismo 404', async () => {
+  it('AC5: reserva de otro arrendatario, de otro estado e inexistente: el mismo 404 (R06)', async () => {
     const ajena = await reserva(taladro, 'COMPLETADA', user.t2.id);
     const ajenaEnCurso = await reserva(taladro, 'EN_CURSO', user.t2.id);
 
@@ -297,7 +297,7 @@ describe('QA-17.1: calificar el bien y al arrendador', () => {
       'campo extra (publicacionId)',
       { puntajeBien: 3, puntajeArrendador: 3, publicacionId: randomUUID() },
     ],
-  ])('R07 %s: 400 con mensaje y sin guardar nada', async (_caso, body) => {
+  ])('AC6: %s: 400 con mensaje y sin guardar nada (R07)', async (_caso, body) => {
     const id = await reserva(taladro);
 
     const res = await calificar(id, body);
@@ -335,7 +335,7 @@ describe('QA-17.1: calificar el bien y al arrendador', () => {
     ]);
   });
 
-  it('R10 el promedio del detalle refleja las calificaciones, con un decimal y null sin ellas', async () => {
+  it('AC2: el promedio del detalle refleja las calificaciones, con un decimal y null sin ellas (R10)', async () => {
     expect(await service.promedioCalificaciones(taladro)).toEqual({
       promedioBien: null,
       promedioArrendador: null,
