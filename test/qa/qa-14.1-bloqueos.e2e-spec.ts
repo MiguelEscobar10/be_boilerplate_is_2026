@@ -25,7 +25,7 @@ type Session = { token: string; userId: string };
 type Status =
   'PENDIENTE' | 'CONFIRMADA' | 'EN_CURSO' | 'RECHAZADA' | 'COMPLETADA';
 
-describe('QA-14.1: bloqueo de fechas', () => {
+describe('H14. Bloquear fechas de un bien', () => {
   const email = `qa-14.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   let app: INestApplication<App>;
@@ -157,8 +157,8 @@ describe('QA-14.1: bloqueo de fechas', () => {
     await app.close();
   });
 
-  describe('criterio 1: el dueño bloquea un rango libre', () => {
-    it('B01: 201 con el bloqueo; queda guardado con su autor y el motivo recortado', async () => {
+  describe('el dueño bloquea un rango libre (AC1)', () => {
+    it('AC1: 201 con el bloqueo; queda guardado con su autor y el motivo recortado (B01)', async () => {
       const listing = await newListing();
 
       const res = await block(listing, {
@@ -183,7 +183,7 @@ describe('QA-14.1: bloqueo de fechas', () => {
       });
     });
 
-    it('B02: el motivo es opcional (sin motivo o en blanco queda vacío) y acepta 200 caracteres', async () => {
+    it('AC1: el motivo es opcional (sin motivo o en blanco queda vacío) y acepta 200 caracteres (B02)', async () => {
       const listing = await newListing();
 
       const sin = await block(listing, RANGO).expect(201);
@@ -200,7 +200,7 @@ describe('QA-14.1: bloqueo de fechas', () => {
       expect(await blocksOf(listing)).toHaveLength(3);
     });
 
-    it('B03: las solicitudes PENDIENTE no cambian, pero ya no se pueden aprobar sobre el bloqueo', async () => {
+    it('AC1: las solicitudes PENDIENTE no cambian, pero ya no se pueden aprobar sobre el bloqueo (B03)', async () => {
       const listing = await newListing();
       const pendiente = await reservation(
         listing,
@@ -229,6 +229,25 @@ describe('QA-14.1: bloqueo de fechas', () => {
       );
     });
 
+    it('AC1: con el rango bloqueado ya no se puede solicitar: POST /reservas responde 409 PERIODO_NO_DISPONIBLE y no crea nada (B13)', async () => {
+      const listing = await newListing();
+      await block(listing, RANGO).expect(201);
+
+      const res = await auth(
+        http().post('/api/v1/reservas').send({
+          publicacionId: listing,
+          inicio: '2027-02-21T09:00:00-06:00',
+          fin: '2027-02-21T12:00:00-06:00',
+        }),
+        tenant,
+      ).expect(409);
+
+      expect(res.body.codigo).toBe('PERIODO_NO_DISPONIBLE');
+      expect(
+        await prisma.reservation.count({ where: { listingId: listing } }),
+      ).toBe(0);
+    });
+
     it('B04: el dueño ve sus bloqueos con el motivo, del más próximo al más lejano', async () => {
       const listing = await newListing();
       await block(listing, {
@@ -254,8 +273,8 @@ describe('QA-14.1: bloqueo de fechas', () => {
     });
   });
 
-  describe('criterio 2: el arrendatario ve las fechas ocupadas (H13)', () => {
-    it('B05: el calendario público muestra el bloqueo sin el motivo, y el día de fin queda libre', async () => {
+  describe('el arrendatario ve las fechas ocupadas (AC2)', () => {
+    it('AC2: el calendario público muestra el bloqueo sin el motivo, y el día de fin queda libre (B05)', async () => {
       const listing = await newListing();
       await block(listing, { ...RANGO, motivo: 'Privado' }).expect(201);
 
@@ -268,8 +287,8 @@ describe('QA-14.1: bloqueo de fechas', () => {
     });
   });
 
-  describe('criterio 3: el rango tiene una reserva CONFIRMADA o EN_CURSO', () => {
-    it('B06: 409 RANGO_CON_RESERVA con el texto de la historia y no se guarda nada (2 subcasos)', async () => {
+  describe('el rango tiene una reserva CONFIRMADA o EN_CURSO (AC3)', () => {
+    it('AC3: 409 RANGO_CON_RESERVA con el texto de la historia y no se guarda nada (2 subcasos) (B06)', async () => {
       for (const status of ['CONFIRMADA', 'EN_CURSO'] as const) {
         const listing = await newListing();
         await reservation(
@@ -289,7 +308,7 @@ describe('QA-14.1: bloqueo de fechas', () => {
       }
     });
 
-    it('B07: PENDIENTE, RECHAZADA y COMPLETADA no impiden bloquear, ni una CONFIRMADA que solo toca el borde', async () => {
+    it('AC3: PENDIENTE, RECHAZADA y COMPLETADA no impiden bloquear, ni una CONFIRMADA que solo toca el borde (B07)', async () => {
       const listing = await newListing();
       for (const status of ['PENDIENTE', 'RECHAZADA', 'COMPLETADA'] as const) {
         await reservation(
@@ -312,8 +331,8 @@ describe('QA-14.1: bloqueo de fechas', () => {
     });
   });
 
-  describe('criterio 4: fechas inválidas', () => {
-    it('B08: fin anterior o igual al inicio: 400 que explica por qué y no se guarda nada', async () => {
+  describe('fechas inválidas (AC4)', () => {
+    it('AC4: fin anterior o igual al inicio: 400 que explica por qué y no se guarda nada (B08)', async () => {
       const listing = await newListing();
 
       const antes = await block(listing, {
@@ -334,7 +353,7 @@ describe('QA-14.1: bloqueo de fechas', () => {
       expect(await blocksOf(listing)).toHaveLength(0);
     });
 
-    it('B09: sin fecha, sin zona, fecha que no existe, motivo de 201 o propiedad de más: 400 y no se guarda nada', async () => {
+    it('AC4: sin fecha, sin zona, fecha que no existe, motivo de 201 o propiedad de más: 400 y no se guarda nada (B09)', async () => {
       const listing = await newListing();
       const malos = [
         { fin: RANGO.fin },
@@ -352,8 +371,8 @@ describe('QA-14.1: bloqueo de fechas', () => {
     });
   });
 
-  describe('criterio 5: solo el dueño puede bloquear', () => {
-    it('B10: otro arrendador recibe 403 «Publicación no encontrada.» al bloquear y al listar', async () => {
+  describe('solo el dueño puede bloquear (AC5)', () => {
+    it('AC5: otro arrendador recibe 403 «Publicación no encontrada.» al bloquear y al listar (B10)', async () => {
       const listing = await newListing();
 
       const res = await block(listing, RANGO, otherLandlord).expect(403);
@@ -365,7 +384,7 @@ describe('QA-14.1: bloqueo de fechas', () => {
       expect(await blocksOf(listing)).toHaveLength(0);
     });
 
-    it('B11: el arrendatario recibe 403, sin sesión 401 y una publicación que no existe 404', async () => {
+    it('AC5: el arrendatario recibe 403, sin sesión 401 y una publicación que no existe 404 (B11)', async () => {
       const listing = await newListing();
 
       await block(listing, RANGO, tenant).expect(403);
