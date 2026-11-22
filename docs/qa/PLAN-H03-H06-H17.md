@@ -99,7 +99,7 @@ completada). Hasta ahora están ejecutados los tres de Componente, CP-319 y CP-3
 el resto sigue como «No ejecutado». La sesión del ambiente desplegado expira a
 los pocos minutos, por eso la ejecución manual se hace por tandas.
 
-## 4. Defectos y observaciones
+## 3. Defectos y observaciones
 
 No hay defectos abiertos en H03, H06 ni H17.
 
