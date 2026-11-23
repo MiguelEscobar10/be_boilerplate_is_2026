@@ -60,21 +60,21 @@ como nombre (CP-319a.png, CP-319b.png…).
 | CP-301 | H03 | Componente | Mixto | H03-AC1, H03-AC2, H03-AC3, H03-AC4, H03-AC5, H03-AC6, H03-AC7 | Suite de componente H03 (backend y frontend) | Pasó |
 | CP-302 | H06 | Componente | Mixto | H06-AC1, H06-AC2, H06-AC3, H06-AC4 | Suite de componente H06 (backend y frontend) | Pasó |
 | CP-303 | H17 | Componente | Mixto | H17-AC1, H17-AC2, H17-AC3, H17-AC4, H17-AC5, H17-AC6 | Suite de componente H17 (backend y frontend) | Pasó |
-| CP-304 | H03 | Integración | Positivo | H03-AC1, H03-AC2 | Solicitud válida queda PENDIENTE y el detalle trae período, costo y depósito | No ejecutado |
-| CP-305 | H03 | Integración | Negativo | H03-AC3, H03-AC5 | Fechas inválidas: fin anterior o igual al inicio, e inicio en el pasado | No ejecutado |
-| CP-306 | H03 | Integración | Negativo | H03-AC4 | Período que se cruza con una reserva CONFIRMADA da 409 | No ejecutado |
-| CP-307 | H03 | Integración | Positivo | H03-AC6 | El arrendador recibe el aviso «Nueva solicitud de reserva» | No ejecutado |
-| CP-308 | H03 | Integración | Negativo | H03-AC7 | Sin verificación, un bien que la exige rechaza la solicitud | No ejecutado |
-| CP-309 | H06 | Integración | Positivo | H06-AC1 | Consultar el pago de una reserva propia | No ejecutado |
+| CP-304 | H03 | Integración | Positivo | H03-AC1, H03-AC2 | Solicitud válida queda PENDIENTE y el detalle trae período, costo y depósito | Pasó |
+| CP-305 | H03 | Integración | Negativo | H03-AC3, H03-AC5 | Fechas inválidas: fin anterior o igual al inicio, e inicio en el pasado | Pasó |
+| CP-306 | H03 | Integración | Negativo | H03-AC4 | Período que se cruza con una reserva CONFIRMADA da 409 | Pasó |
+| CP-307 | H03 | Integración | Positivo | H03-AC6 | El arrendador recibe el aviso «Nueva solicitud de reserva» | Pasó |
+| CP-308 | H03 | Integración | Negativo | H03-AC7 | Sin verificación, un bien que la exige rechaza la solicitud | Pasó |
+| CP-309 | H06 | Integración | Positivo | H06-AC1 | Consultar el pago de una reserva propia | Pasó |
 | CP-310 | H06 | Integración | Positivo | H06-AC2 | Tras un rechazo y un pago aprobado se devuelve el más reciente | No ejecutado |
-| CP-311 | H06 | Integración | Negativo | H06-AC3 | Reserva sin pagos: aún no hay pago registrado | No ejecutado |
-| CP-312 | H06 | Integración | Negativo | H06-AC4 | Reserva de otro arrendatario: no se puede ver su pago | No ejecutado |
-| CP-313 | H17 | Integración | Positivo | H17-AC1 | Calificar una reserva COMPLETADA | No ejecutado |
-| CP-314 | H17 | Integración | Positivo | H17-AC2 | El promedio del bien y del arrendador se ve en el detalle de la publicación | No ejecutado |
-| CP-315 | H17 | Integración | Negativo | H17-AC3 | Reserva que no está COMPLETADA no se puede calificar | No ejecutado |
-| CP-316 | H17 | Integración | Negativo | H17-AC4 | Calificar dos veces la misma reserva da 409 | No ejecutado |
-| CP-317 | H17 | Integración | Negativo | H17-AC5 | Reserva de otro arrendatario: no se puede calificar | No ejecutado |
-| CP-318 | H17 | Integración | Negativo | H17-AC6 | Puntajes fuera de rango o comentario de más de 500 caracteres | No ejecutado |
+| CP-311 | H06 | Integración | Negativo | H06-AC3 | Reserva sin pagos: aún no hay pago registrado | Pasó |
+| CP-312 | H06 | Integración | Negativo | H06-AC4 | Reserva de otro arrendatario: no se puede ver su pago | Pasó |
+| CP-313 | H17 | Integración | Positivo | H17-AC1 | Consultar la calificación guardada de una reserva COMPLETADA | Pasó |
+| CP-314 | H17 | Integración | Positivo | H17-AC2 | El promedio del bien y del arrendador se ve en el detalle de la publicación | Pasó |
+| CP-315 | H17 | Integración | Negativo | H17-AC3 | Reserva que no está COMPLETADA no se puede calificar | Pasó |
+| CP-316 | H17 | Integración | Negativo | H17-AC4 | Calificar dos veces la misma reserva da 409 | Pasó |
+| CP-317 | H17 | Integración | Negativo | H17-AC5 | Reserva de otro arrendatario: no se puede calificar | Pasó |
+| CP-318 | H17 | Integración | Negativo | H17-AC6 | Puntajes fuera de rango o comentario de más de 500 caracteres | Pasó |
 | CP-319 | H03 | Sistema | Positivo | H03-AC1, H03-AC2 | Solicitar una reserva desde el calendario y ver su resumen | Pasó |
 | CP-320 | H03 | Sistema | Negativo | H03-AC4, H03-AC5 | El calendario no deja elegir días pasados ni ocupados | Pasó |
 | CP-321 | H03 | Sistema | Negativo | H03-AC7 | Sin verificación, la solicitud no se envía y se explica el motivo | Pasó |
@@ -95,9 +95,14 @@ como nombre (CP-319a.png, CP-319b.png…).
 Los casos de Integración se ejecutan con Swagger en el ambiente desplegado, los
 de Sistema desde el navegador y los de Aceptación los ejecuta Ricardo Pineda.
 Los de Sistema y Aceptación usan las reservas del seed (pendiente, confirmada y
-completada). Hasta ahora están ejecutados los tres de Componente, CP-319 a CP-328 (los diez de Sistema);
-el resto sigue como «No ejecutado». La sesión del ambiente desplegado expira a
-los pocos minutos, por eso la ejecución manual se hace por tandas.
+completada). Hasta ahora están ejecutados los tres de Componente, los diez de Sistema (CP-319 a CP-328)
+y 14 de los 15 de Integración (todos menos CP-310); los seis de Aceptación siguen como «No ejecutado».
+CP-310 está pendiente porque necesita una segunda tanda con el token del arrendatario: la
+reserva faaf6270-5bdf-41e6-824f-9be22aca7f0a (Taladro, 1 a 3 de diciembre) ya quedó CONFIRMADA
+y sin pagos para hacer el rechazo con la tarjeta 0002 y el pago con la 4242.
+CP-313 consulta la calificación ya guardada de la reserva del seed (la creó CP-325 desde la
+pantalla); el POST se cubre en CP-325 y en el 409 de CP-316. La sesión del ambiente desplegado
+expira a los 15 minutos, por eso la ejecución manual se hace por tandas.
 
 ## 3. Defectos y observaciones
 
