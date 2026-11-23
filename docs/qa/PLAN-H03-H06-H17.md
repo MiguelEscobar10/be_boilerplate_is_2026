@@ -66,7 +66,7 @@ como nombre (CP-319a.png, CP-319b.png…).
 | CP-307 | H03 | Integración | Positivo | H03-AC6 | El arrendador recibe el aviso «Nueva solicitud de reserva» | Pasó |
 | CP-308 | H03 | Integración | Negativo | H03-AC7 | Sin verificación, un bien que la exige rechaza la solicitud | Pasó |
 | CP-309 | H06 | Integración | Positivo | H06-AC1 | Consultar el pago de una reserva propia | Pasó |
-| CP-310 | H06 | Integración | Positivo | H06-AC2 | Tras un rechazo y un pago aprobado se devuelve el más reciente | No ejecutado |
+| CP-310 | H06 | Integración | Positivo | H06-AC2 | Tras un rechazo y un pago aprobado se devuelve el más reciente | Pasó |
 | CP-311 | H06 | Integración | Negativo | H06-AC3 | Reserva sin pagos: aún no hay pago registrado | Pasó |
 | CP-312 | H06 | Integración | Negativo | H06-AC4 | Reserva de otro arrendatario: no se puede ver su pago | Pasó |
 | CP-313 | H17 | Integración | Positivo | H17-AC1 | Consultar la calificación guardada de una reserva COMPLETADA | Pasó |
@@ -96,10 +96,10 @@ Los casos de Integración se ejecutan con Swagger en el ambiente desplegado, los
 de Sistema desde el navegador y los de Aceptación los ejecuta Ricardo Pineda.
 Los de Sistema y Aceptación usan las reservas del seed (pendiente, confirmada y
 completada). Hasta ahora están ejecutados los tres de Componente, los diez de Sistema (CP-319 a CP-328)
-y 14 de los 15 de Integración (todos menos CP-310); los seis de Aceptación siguen como «No ejecutado».
-CP-310 está pendiente porque necesita una segunda tanda con el token del arrendatario: la
-reserva faaf6270-5bdf-41e6-824f-9be22aca7f0a (Taladro, 1 a 3 de diciembre) ya quedó CONFIRMADA
-y sin pagos para hacer el rechazo con la tarjeta 0002 y el pago con la 4242.
+y los quince de Integración (CP-304 a CP-318); los seis de Aceptación siguen como «No ejecutado».
+CP-310 se hizo con la reserva faaf6270-5bdf-41e6-824f-9be22aca7f0a (CP-304, aprobada por el
+arrendador): primero un pago rechazado con la tarjeta 0002 y luego uno aprobado con la 4242;
+la consulta del último pago devuelve cada vez el más reciente.
 CP-313 consulta la calificación ya guardada de la reserva del seed (la creó CP-325 desde la
 pantalla); el POST se cubre en CP-325 y en el 409 de CP-316. La sesión del ambiente desplegado
 expira a los 15 minutos, por eso la ejecución manual se hace por tandas.
