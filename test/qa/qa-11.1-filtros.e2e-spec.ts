@@ -10,6 +10,9 @@ import { resolveTestDatabaseUrl } from '../helpers/test-database.js';
  * QA-11.1 (MP4-47): filtros del catálogo, fechas disponibles y rangos
  * inválidos (H11).
  *
+ * Los casos que prueban un criterio de aceptación de H11 empiezan con «ACn:» y
+ * conservan su id al final, entre paréntesis.
+ *
  * Cada caso tiene un id (C01, C02...) que se repite en la evidencia de
  * docs/qa/QA-11.1-filtros.md. Se compara lo que responde
  * `GET /publicaciones` con lo que hay en la base: publicaciones, reservas en
@@ -27,7 +30,7 @@ type Status =
   | 'CANCELADA'
   | 'COMPLETADA';
 
-describe('QA-11.1: filtros del catálogo', () => {
+describe('H11. Filtrar resultados de búsqueda', () => {
   const email = `qa-11.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   const tag = `qa${randomUUID().replaceAll('-', '').slice(0, 10)}`;
@@ -254,7 +257,7 @@ describe('QA-11.1: filtros del catálogo', () => {
       ]);
     });
 
-    it('C04: los tres a la vez devuelven solo lo que cumple los tres', async () => {
+    it('AC1: los tres a la vez devuelven solo lo que cumple los tres (C04)', async () => {
       const res = await list({
         tipo: 'ESPACIO',
         ubicacion: 'san salvador',
@@ -278,7 +281,7 @@ describe('QA-11.1: filtros del catálogo', () => {
   });
 
   describe('criterio 2: fechas disponibles', () => {
-    it('C06: excluye las que tienen una reserva CONFIRMADA o EN_CURSO o un bloqueo en el rango', async () => {
+    it('AC2: excluye las que tienen una reserva CONFIRMADA o EN_CURSO o un bloqueo en el rango (C06)', async () => {
       const res = await list(RANGO).expect(200);
 
       expect(names(res)).toEqual(['Bodega', 'Cancha']);
@@ -328,7 +331,7 @@ describe('QA-11.1: filtros del catálogo', () => {
   });
 
   describe('criterio 3: palabra clave con filtros, orden y páginas', () => {
-    it('C12: los resultados cumplen la palabra y los filtros, más reciente primero', async () => {
+    it('AC3: los resultados cumplen la palabra y los filtros, más reciente primero (C12)', async () => {
       const res = await http()
         .get('/api/v1/publicaciones')
         .query({ buscar: tag, tipo: 'EQUIPO', ...RANGO })
@@ -349,7 +352,7 @@ describe('QA-11.1: filtros del catálogo', () => {
       expect(names(salon)).toEqual(['Salón']);
     });
 
-    it('C13: con 13 resultados filtrados, páginas de 12 y el total cuenta todos', async () => {
+    it('AC3: con 13 resultados filtrados, páginas de 12 y el total cuenta todos (C13)', async () => {
       const t = `trece${tag}`;
       for (let i = 1; i <= 13; i++) {
         await create(`Silla ${i} ${t}`, {
@@ -378,7 +381,7 @@ describe('QA-11.1: filtros del catálogo', () => {
   });
 
   describe('criterio 4: ninguna publicación cumple', () => {
-    it('C14: responde 200 con la lista vacía y total 0', async () => {
+    it('AC4: responde 200 con la lista vacía y total 0 (C14)', async () => {
       const res = await list({ tipo: 'EQUIPO', precioMin: 500 }).expect(200);
 
       expect(res.body).toEqual({ items: [], page: 1, total: 0 });
@@ -388,34 +391,48 @@ describe('QA-11.1: filtros del catálogo', () => {
   describe('criterio 5: rangos inválidos', () => {
     it.each([
       [
-        'C15',
+        'AC5',
         'precio mínimo mayor que el máximo',
+        'C15',
         { precioMin: 50, precioMax: 10 },
       ],
-      ['C16', 'precio negativo', { precioMin: -1 }],
-      ['C17', 'precio que no es un número', { precioMax: 'caro' }],
-      ['C18', 'fechas al revés', { fechaInicio: day(12), fechaFin: day(10) }],
+      ['Negativo', 'precio negativo', 'C16', { precioMin: -1 }],
+      ['Negativo', 'precio que no es un número', 'C17', { precioMax: 'caro' }],
       [
-        'C19',
+        'AC5',
+        'fechas al revés',
+        'C18',
+        { fechaInicio: day(12), fechaFin: day(10) },
+      ],
+      [
+        'AC5',
         'fecha de inicio en el pasado',
+        'C19',
         { fechaInicio: day(-1), fechaFin: day(10) },
       ],
-      ['C20', 'solo una de las dos fechas', { fechaInicio: day(10) }],
       [
-        'C21',
+        'Negativo',
+        'solo una de las dos fechas',
+        'C20',
+        { fechaInicio: day(10) },
+      ],
+      [
+        'Negativo',
         'una fecha que no existe',
+        'C21',
         { fechaInicio: '2027-02-30', fechaFin: '2027-03-02' },
       ],
       [
-        'C22',
+        'Negativo',
         'una fecha con otro formato',
+        'C22',
         { fechaInicio: '10/03/2027', fechaFin: '12/03/2027' },
       ],
-      ['C23', 'un tipo que no existe', { tipo: 'VEHICULO' }],
-      ['C24', 'una página inválida', { tipo: 'EQUIPO', page: 0 }],
+      ['Negativo', 'un tipo que no existe', 'C23', { tipo: 'VEHICULO' }],
+      ['Negativo', 'una página inválida', 'C24', { tipo: 'EQUIPO', page: 0 }],
     ])(
-      '%s: %s es 400 con un mensaje que dice qué está mal',
-      async (_id, _caso, query) => {
+      '%s: %s es 400 con un mensaje que dice qué está mal (%s)',
+      async (_criterio, _caso, _id, query) => {
         const res = await list(query as Record<string, string | number>).expect(
           400,
         );

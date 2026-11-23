@@ -10,6 +10,9 @@ import { resolveTestDatabaseUrl } from '../helpers/test-database.js';
  * QA-12.1 (MP4-39): detalle completo de una publicación y publicaciones
  * desactivadas (H12).
  *
+ * Los casos que prueban un criterio de aceptación de H12 empiezan con «ACn:» y
+ * conservan su id al final, entre paréntesis.
+ *
  * Cada caso tiene un id (C01, C02...) que se repite en la evidencia de
  * docs/qa/QA-12.1-detalle.md. Se compara lo que responde
  * `GET /publicaciones/{id}` con lo que hay en la base.
@@ -17,7 +20,7 @@ import { resolveTestDatabaseUrl } from '../helpers/test-database.js';
  * Las publicaciones, las reservas y las calificaciones se crean directo en la
  * base; la desactivación también, porque todavía no hay un endpoint para eso.
  */
-describe('QA-12.1: detalle completo y publicaciones desactivadas', () => {
+describe('H12. Ver el detalle completo de una publicación', () => {
   const email = `qa-12.1-${randomUUID()}@test.local`;
   let app: INestApplication<App>;
   let prisma: import('../../src/prisma/services/prisma.service.js').PrismaService;
@@ -156,7 +159,7 @@ describe('QA-12.1: detalle completo y publicaciones desactivadas', () => {
   });
 
   describe('criterio 1: el detalle de una publicación activa', () => {
-    it('C01: trae descripción, ubicación, tarifa con su unidad, depósito y condiciones', async () => {
+    it('AC1: trae descripción, ubicación, tarifa con su unidad, depósito y condiciones (C01)', async () => {
       const { body } = await detail(listingId).expect(200);
 
       expect(body).toMatchObject({
@@ -171,7 +174,7 @@ describe('QA-12.1: detalle completo y publicaciones desactivadas', () => {
       });
     });
 
-    it('C02: las fotos salen en orden y cada una se puede pedir por su orden', async () => {
+    it('AC1: las fotos salen en orden y cada una se puede pedir por su orden (C02)', async () => {
       const { body } = await detail(listingId).expect(200);
 
       expect(body.imagenes).toEqual(
@@ -209,7 +212,7 @@ describe('QA-12.1: detalle completo y publicaciones desactivadas', () => {
   });
 
   describe('criterio 2: condiciones y depósito para el formulario de solicitud', () => {
-    it('C05: el detalle da las condiciones y el depósito que el formulario muestra antes de enviar', async () => {
+    it('AC2: el detalle da las condiciones y el depósito que el formulario muestra antes de enviar (C05)', async () => {
       const { body } = await detail(listingId).expect(200);
 
       expect(body.condiciones).toBe('Devolver limpio');
@@ -218,7 +221,7 @@ describe('QA-12.1: detalle completo y publicaciones desactivadas', () => {
   });
 
   describe('criterio 3: promedios de calificaciones', () => {
-    it('C06: con calificaciones aparece el promedio del bien y el del arrendador, con un decimal', async () => {
+    it('AC3: con calificaciones aparece el promedio del bien y el del arrendador, con un decimal (C06)', async () => {
       const { body } = await detail(listingId).expect(200);
 
       // Bien: (5 + 4 + 4) / 3 = 4.33. Arrendador: (5 + 5 + 4 + 3) / 4 = 4.25.
@@ -239,7 +242,7 @@ describe('QA-12.1: detalle completo y publicaciones desactivadas', () => {
       });
     });
 
-    it('C08: sin calificaciones los promedios son null y el total es 0', async () => {
+    it('AC3: sin calificaciones los promedios son null y el total es 0 (C08)', async () => {
       const { body } = await detail(unratedId).expect(200);
 
       expect(body).toMatchObject({
@@ -263,7 +266,7 @@ describe('QA-12.1: detalle completo y publicaciones desactivadas', () => {
   });
 
   describe('criterio 4: publicaciones desactivadas', () => {
-    it('C10: una desactivada responde 404 PUBLICACION_NO_DISPONIBLE', async () => {
+    it('AC4: una desactivada responde 404 PUBLICACION_NO_DISPONIBLE (C10)', async () => {
       const { body } = await detail(inactiveId).expect(404);
 
       expect(body.codigo).toBe('PUBLICACION_NO_DISPONIBLE');
@@ -276,7 +279,7 @@ describe('QA-12.1: detalle completo y publicaciones desactivadas', () => {
       expect(inactive.body).toEqual(missing.body);
     });
 
-    it('C12: al desactivarla deja de abrirse y desaparece del catálogo', async () => {
+    it('AC4: al desactivarla deja de abrirse y desaparece del catálogo (C12)', async () => {
       const id = await newListing(landlordId, `Temporal ${email}`);
       await detail(id).expect(200);
       const before = await request(app.getHttpServer())
