@@ -15,7 +15,9 @@ import { resolveTestDatabaseUrl } from '../helpers/test-database.js';
  * documentales (H07).
  *
  * Cada caso tiene un id (V01, V02...) que se repite en la evidencia de
- * docs/qa/QA-07.1-verificacion.md. Además de la respuesta HTTP, cada caso
+ * docs/qa/QA-07.1-verificacion.md. Los casos que prueban un criterio de
+ * aceptación de H07 empiezan con «ACn:» y conservan su id al final, entre
+ * paréntesis. Además de la respuesta HTTP, cada caso
  * revisa lo que quedó guardado: filas en `identity_verifications` y archivos
  * en la carpeta de documentos.
  */
@@ -28,7 +30,7 @@ const JPG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46]);
 const TXT = Buffer.from('no soy un documento');
 const DOCX = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0, 0x06, 0]);
 
-describe('QA-07.1: carga, revisión y permisos documentales', () => {
+describe('H07. Solicitar verificación de identidad', () => {
   const email = `qa-07.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   let app: INestApplication<App>;
@@ -133,6 +135,12 @@ describe('QA-07.1: carga, revisión y permisos documentales', () => {
   });
 
   afterAll(async () => {
+    await prisma.reservation.deleteMany({
+      where: { tenant: { email: { endsWith: email } } },
+    });
+    await prisma.listing.deleteMany({
+      where: { landlord: { email: { endsWith: email } } },
+    });
     await prisma.identityVerification.deleteMany({
       where: { user: { email: { endsWith: email } } },
     });
@@ -143,11 +151,11 @@ describe('QA-07.1: carga, revisión y permisos documentales', () => {
 
   describe('carga del documento', () => {
     it.each([
-      ['V01', 'PDF', PDF, 'dui.pdf', '.pdf'],
-      ['V02', 'PNG', PNG, 'dui.png', '.png'],
-      ['V03', 'JPG', JPG, 'dui.jpg', '.jpg'],
+      ['PDF', 'V01', PDF, 'dui.pdf', '.pdf'],
+      ['PNG', 'V02', PNG, 'dui.png', '.png'],
+      ['JPG', 'V03', JPG, 'dui.jpg', '.jpg'],
     ])(
-      '%s: un documento %s válido queda PENDIENTE con su archivo guardado en privado',
+      'AC1: un documento %s válido queda PENDIENTE con su archivo guardado en privado (%s)',
       async (_, __, file, name, ext) => {
         const tenant = await account('ARRENDATARIO');
 
@@ -169,10 +177,10 @@ describe('QA-07.1: carga, revisión y permisos documentales', () => {
     );
 
     it.each([
-      ['V04', 'un .txt renombrado a .pdf', TXT, 'trampa.pdf'],
-      ['V05', 'un .docx', DOCX, 'dui.docx'],
+      ['un .txt renombrado a .pdf', 'V04', TXT, 'trampa.pdf'],
+      ['un .docx', 'V05', DOCX, 'dui.docx'],
     ])(
-      '%s: %s responde 400 con un mensaje claro y no guarda nada',
+      'AC6: %s responde 400 con un mensaje claro y no guarda nada (%s)',
       async (_, __, file, name) => {
         const tenant = await account('ARRENDATARIO');
         const before = await storedFiles();
@@ -185,7 +193,7 @@ describe('QA-07.1: carga, revisión y permisos documentales', () => {
       },
     );
 
-    it('V06: un archivo de más de 5 MB responde 400 y no guarda nada', async () => {
+    it('AC6: un archivo de más de 5 MB responde 400 con lo que hay que corregir y no guarda nada (V06)', async () => {
       const tenant = await account('ARRENDATARIO');
       const before = await storedFiles();
       const big = Buffer.concat([PDF, Buffer.alloc(5 * 1024 * 1024)]);
@@ -197,7 +205,7 @@ describe('QA-07.1: carga, revisión y permisos documentales', () => {
       expect(await storedFiles()).toEqual(before);
     });
 
-    it('V07: una solicitud con otra PENDIENTE existente responde 409 y no registra otra', async () => {
+    it('AC5: con otra solicitud PENDIENTE, la nueva responde 409, avisa que hay que esperar y no se registra (V07)', async () => {
       const tenant = await account('ARRENDATARIO');
       await send(tenant).expect(201);
       const before = await storedFiles();
@@ -221,7 +229,7 @@ describe('QA-07.1: carga, revisión y permisos documentales', () => {
   });
 
   describe('revisión', () => {
-    it('V09: la aprobación deja la solicitud APROBADA con su revisor y el arrendatario lo ve', async () => {
+    it('AC2: el REVISOR decide y el arrendatario conoce si quedó APROBADA (V09)', async () => {
       const tenant = await account('ARRENDATARIO');
       const { body: created } = await send(tenant).expect(201);
 
@@ -238,7 +246,7 @@ describe('QA-07.1: carga, revisión y permisos documentales', () => {
       expect(body.estado).toBe('APROBADA');
     });
 
-    it('V10: el rechazo con motivo deja RECHAZADA, registra el motivo y el arrendatario lo ve', async () => {
+    it('AC3: una solicitud RECHAZADA muestra al arrendatario el motivo registrado (V10)', async () => {
       const tenant = await account('ARRENDATARIO');
       const { body: created } = await send(tenant).expect(201);
 
@@ -321,7 +329,7 @@ describe('QA-07.1: carga, revisión y permisos documentales', () => {
       expect(row.status).toBe('PENDIENTE');
     });
 
-    it('V15: otro usuario no accede al documento ni a la solicitud ajena', async () => {
+    it('AC4: una persona sin permiso no accede al documento ni a la solicitud ajena (V15)', async () => {
       const owner = await account('ARRENDATARIO');
       const other = await account('ARRENDATARIO');
       const { body: created } = await send(owner).expect(201);
@@ -393,6 +401,57 @@ describe('QA-07.1: carga, revisión y permisos documentales', () => {
       expect(res.headers['content-type']).toContain('application/pdf');
       expect(res.headers['cache-control']).toBe('private, no-store');
       expect(Buffer.compare(res.body as Buffer, PDF)).toBe(0);
+    });
+  });
+
+  describe('alcance de la verificación', () => {
+    it('AC7: el arrendador publica y decide solicitudes sin verificación de identidad (V19)', async () => {
+      const landlord = await account('ARRENDADOR');
+      const tenant = await account('ARRENDATARIO');
+
+      const publicacion = http()
+        .post('/api/v1/publicaciones')
+        .set('Authorization', `Bearer ${landlord.token}`);
+      for (const [k, v] of Object.entries({
+        tipo: 'EQUIPO',
+        nombre: 'Proyector V19',
+        ubicacion: 'Antiguo Cuscatlán',
+        tarifaMonto: '15.00',
+        tarifaUnidad: 'DIA',
+      }))
+        void publicacion.field(k, v);
+      const { body: listing } = await publicacion
+        .attach('imagenes', JPG, 'foto.jpg')
+        .expect(201);
+
+      const startAt = new Date(Date.UTC(2027, 0, 10, 15));
+      const reservation = await prisma.reservation.create({
+        data: {
+          listingId: listing.id,
+          tenantId: tenant.userId,
+          startAt,
+          endAt: new Date(startAt.getTime() + 3 * 3_600_000),
+          status: 'PENDIENTE',
+          rentalCost: '45.00',
+          depositAmount: '0.00',
+        },
+      });
+
+      await http()
+        .patch(`/api/v1/reservas/${reservation.id}/decision`)
+        .set('Authorization', `Bearer ${landlord.token}`)
+        .send({ decision: 'APROBAR' })
+        .expect(200);
+
+      expect(
+        (
+          await prisma.reservation.findUniqueOrThrow({
+            where: { id: reservation.id },
+          })
+        ).status,
+      ).toBe('CONFIRMADA');
+      // Nunca tuvo una verificación y no se le pidió.
+      expect(await rowsOf(landlord)).toHaveLength(0);
     });
   });
 });

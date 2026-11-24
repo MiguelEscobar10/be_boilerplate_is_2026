@@ -11,7 +11,9 @@ import { resolveTestDatabaseUrl } from '../helpers/test-database.js';
  * identidad para reservar (H19).
  *
  * Cada caso tiene un id (E01, E02...) que se repite en la evidencia de
- * docs/qa/QA-19.1-exigencia-verificacion.md.
+ * docs/qa/QA-19.1-exigencia-verificacion.md. Los casos que prueban un
+ * criterio de aceptación de H19 empiezan con «ACn:» y conservan su id al
+ * final, entre paréntesis.
  *
  * QA-03.1 (S20-S22, Mario) ya prueba el camino corto del 422: sin
  * verificación o con una PENDIENTE no se guarda, con una APROBADA sí, y la
@@ -27,7 +29,7 @@ const HORA = 60 * 60 * 1000;
 
 type Session = { token: string; userId: string };
 
-describe('QA-19.1: exigencia de verificación para reservar', () => {
+describe('H19. Exigir verificación para rentar', () => {
   const email = `qa-19.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   let app: INestApplication<App>;
@@ -230,7 +232,7 @@ describe('QA-19.1: exigencia de verificación para reservar', () => {
       expect(await exigeEnLaBase(id)).toBe(true);
     });
 
-    it('E03: otro arrendador no la puede cambiar (403) y el valor queda igual', async () => {
+    it('AC5: quien no es el dueño no puede cambiar la opción (403) y el valor queda igual (E03)', async () => {
       const id = await publicacion(false);
 
       const res = await cambiar(id, { requiereVerificacion: true }, otroDueno).expect(403);
@@ -284,7 +286,7 @@ describe('QA-19.1: exigencia de verificación para reservar', () => {
   });
 
   describe('qué cuenta como verificado', () => {
-    it('E09: sin ninguna verificación, el 422 trae el código y el motivo', async () => {
+    it('AC3: sin verificación APROBADA la solicitud no se envía: el 422 trae el código, el motivo y cómo verificarse (E09)', async () => {
       const id = await publicacion(true);
       const d = dia();
 
@@ -295,7 +297,13 @@ describe('QA-19.1: exigencia de verificación para reservar', () => {
         error: 'Unprocessable Entity',
         codigo: 'VERIFICACION_REQUERIDA',
       });
-      expect(String(res.body.message)).not.toHaveLength(0);
+      expect(String(res.body.message)).toContain(
+        'solo acepta usuarios verificados',
+      );
+      expect(String(res.body.message)).toContain(
+        'Envía tu documento de identidad',
+      );
+      expect(await reservasDe(id)).toBe(0);
     });
 
     it('E10: una verificación RECHAZADA no alcanza (422)', async () => {
@@ -331,7 +339,7 @@ describe('QA-19.1: exigencia de verificación para reservar', () => {
       await pedir(id, aLas(d, 9), aLas(d, 12), verificado).expect(201);
     });
 
-    it('E13: con la verificación aprobada la solicitud queda PENDIENTE, como cualquier otra', async () => {
+    it('AC2: con la verificación APROBADA la solicitud se registra PENDIENTE, como cualquier otra (E13)', async () => {
       const id = await publicacion(true);
       const d = dia();
 
@@ -342,7 +350,7 @@ describe('QA-19.1: exigencia de verificación para reservar', () => {
   });
 
   describe('alcance y momento del cambio', () => {
-    it('E14: la opción es de cada publicación, no del dueño ni de la persona', async () => {
+    it('AC4: si la publicación no requiere verificación, un arrendatario no verificado reserva con normalidad (E14)', async () => {
       const exige = await publicacion(true);
       const libre = await publicacion(false);
       const d = dia();
@@ -351,7 +359,7 @@ describe('QA-19.1: exigencia de verificación para reservar', () => {
       await pedir(libre, aLas(d, 9), aLas(d, 12)).expect(201);
     });
 
-    it('E15: activarla bloquea la siguiente solicitud', async () => {
+    it('AC1: el dueño activa «requiere verificación» y desde entonces solo pasan arrendatarios verificados (E15)', async () => {
       const id = await publicacion(false);
       const primero = dia();
       await pedir(id, aLas(primero, 9), aLas(primero, 12)).expect(201);
@@ -361,6 +369,11 @@ describe('QA-19.1: exigencia de verificación para reservar', () => {
       const segundo = dia();
       await pedir(id, aLas(segundo, 9), aLas(segundo, 12)).expect(422);
       expect(await reservasDe(id)).toBe(1);
+      // El verificado sí puede pedir el mismo período.
+      await pedir(id, aLas(segundo, 9), aLas(segundo, 12), verificado).expect(
+        201,
+      );
+      expect(await reservasDe(id)).toBe(2);
     });
 
     it('E16: apagarla vuelve a dejar solicitar', async () => {
