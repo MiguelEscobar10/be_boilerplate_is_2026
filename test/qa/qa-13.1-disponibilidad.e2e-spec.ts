@@ -28,7 +28,7 @@ type Status =
   | 'CANCELADA'
   | 'COMPLETADA';
 
-describe('QA-13.1: disponibilidad real de un bien', () => {
+describe('H13. Ver la disponibilidad real de un bien', () => {
   const email = `qa-13.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   let app: INestApplication<App>;
@@ -154,8 +154,8 @@ describe('QA-13.1: disponibilidad real de un bien', () => {
     await app.close();
   });
 
-  describe('criterio 1: días libres y ocupados', () => {
-    it('C01: ocupan días las reservas CONFIRMADA y EN_CURSO y los bloqueos, en orden por inicio', async () => {
+  describe('días libres y ocupados (AC1)', () => {
+    it('AC1: ocupan días las reservas CONFIRMADA y EN_CURSO y los bloqueos, en orden por inicio (C01)', async () => {
       const listing = await newListing();
       await reservation(
         listing,
@@ -195,7 +195,7 @@ describe('QA-13.1: disponibilidad real de un bien', () => {
       ]);
     });
 
-    it('C02: un bien sin nada ocupado responde 200 con la lista vacía', async () => {
+    it('AC1: un bien sin nada ocupado responde 200 con la lista vacía (C02)', async () => {
       const listing = await newListing();
       const res = await availability(listing, {
         desde: '2027-03-01',
@@ -209,7 +209,7 @@ describe('QA-13.1: disponibilidad real de un bien', () => {
       });
     });
 
-    it('C03: es pública y no expone quién reservó ni el motivo del bloqueo', async () => {
+    it('AC1: es pública y no expone quién reservó ni el motivo del bloqueo (C03)', async () => {
       const listing = await newListing();
       await reservation(
         listing,
@@ -240,7 +240,7 @@ describe('QA-13.1: disponibilidad real de un bien', () => {
       expect(texto).not.toContain(tenant.userId);
     });
 
-    it('C04: un período que cruza el borde del mes sale completo, y una reserva y un bloqueo sobre el mismo día salen los dos', async () => {
+    it('AC1: un período que cruza el borde del mes sale completo, y una reserva y un bloqueo sobre el mismo día salen los dos (C04)', async () => {
       const listing = await newListing();
       await reservation(
         listing,
@@ -275,8 +275,8 @@ describe('QA-13.1: disponibilidad real de un bien', () => {
     });
   });
 
-  describe('criterio 2: las solicitudes pendientes no apartan fechas', () => {
-    it('C05: PENDIENTE, RECHAZADA, CANCELADA y COMPLETADA no ocupan días', async () => {
+  describe('las solicitudes pendientes no apartan fechas (AC2)', () => {
+    it('AC2: PENDIENTE, RECHAZADA, CANCELADA y COMPLETADA no ocupan días (C05)', async () => {
       const listing = await newListing();
       for (const status of [
         'PENDIENTE',
@@ -295,7 +295,7 @@ describe('QA-13.1: disponibilidad real de un bien', () => {
       expect(await busy(listing, '2027-03-01', '2027-03-31')).toEqual([]);
     });
 
-    it('C06: una PENDIENTE pasa a ocupar el día solo cuando el arrendador la aprueba (H04); si la rechaza, sigue libre', async () => {
+    it('AC2: una PENDIENTE pasa a ocupar el día solo cuando el arrendador la aprueba (H04); si la rechaza, sigue libre (C06)', async () => {
       const listing = await newListing();
       const aprobada = await reservation(
         listing,
@@ -330,7 +330,7 @@ describe('QA-13.1: disponibilidad real de un bien', () => {
   });
 
   describe('fechas en hora de El Salvador', () => {
-    it('C07: «hasta» incluye todo el último día local y el fin de un período no cuenta como ocupado', async () => {
+    it('AC1: «hasta» incluye todo el último día local y el fin de un período no cuenta como ocupado (C07)', async () => {
       const listing = await newListing();
       // 31 de marzo 23:00 aquí = 1 de abril 05:00 UTC: es de marzo.
       await reservation(
@@ -353,7 +353,7 @@ describe('QA-13.1: disponibilidad real de un bien', () => {
     });
   });
 
-  describe('validación y publicación', () => {
+  describe('casos negativos: validación y publicación', () => {
     it('C08: rango inválido responde 400 (8 subcasos) y 92 días sí se aceptan', async () => {
       const listing = await newListing();
       const malos: Record<string, string>[] = [

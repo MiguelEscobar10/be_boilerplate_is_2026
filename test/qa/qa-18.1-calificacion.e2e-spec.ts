@@ -28,7 +28,7 @@ type Status =
   | 'CANCELADA'
   | 'COMPLETADA';
 
-describe('QA-18.1: calificar al arrendatario', () => {
+describe('H18. Calificar al arrendatario', () => {
   const email = `qa-18.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   let app: INestApplication<App>;
@@ -162,8 +162,8 @@ describe('QA-18.1: calificar al arrendatario', () => {
     await app.close();
   });
 
-  describe('criterio 1: calificar una reserva COMPLETADA propia', () => {
-    it('R01: de 1 a 5 con comentario: 201, se guarda con autor y arrendatario de la reserva, y la solicitud queda marcada', async () => {
+  describe('calificar una reserva COMPLETADA propia (AC1)', () => {
+    it('AC1: de 1 a 5 con comentario: 201, se guarda con autor y arrendatario de la reserva, y la solicitud queda marcada (R01)', async () => {
       const r = await reservation();
       expect(await flagOf(r.id)).toBe(false);
 
@@ -185,7 +185,7 @@ describe('QA-18.1: calificar al arrendatario', () => {
       expect(await flagOf(r.id)).toBe(true);
     });
 
-    it('R02: los extremos 1 y 5 se aceptan, el comentario es opcional (sin él o en blanco queda vacío) y acepta 500 caracteres', async () => {
+    it('AC1: los extremos 1 y 5 se aceptan, el comentario es opcional (sin él o en blanco queda vacío) y acepta 500 caracteres (R02)', async () => {
       const casos = [
         { puntaje: 1 },
         { puntaje: 5, comentario: '   ' },
@@ -204,7 +204,7 @@ describe('QA-18.1: calificar al arrendatario', () => {
       }
     });
 
-    it('R03: el body no deja elegir a quién se califica: un arrendatarioId de más es 400', async () => {
+    it('AC1: el body no deja elegir a quién se califica: un arrendatarioId de más es 400 (R03)', async () => {
       const r = await reservation();
       await rate(r.id, { puntaje: 5, arrendatarioId: landlord.userId }).expect(
         400,
@@ -213,8 +213,8 @@ describe('QA-18.1: calificar al arrendatario', () => {
     });
   });
 
-  describe('criterio 2: la reserva no está COMPLETADA', () => {
-    it('R04: PENDIENTE, CONFIRMADA, EN_CURSO, RECHAZADA y CANCELADA: 422 RESERVA_NO_COMPLETADA y no se guarda nada', async () => {
+  describe('la reserva no está COMPLETADA (AC2)', () => {
+    it('AC2: PENDIENTE, CONFIRMADA, EN_CURSO, RECHAZADA y CANCELADA: 422 RESERVA_NO_COMPLETADA y no se guarda nada (R04)', async () => {
       for (const status of [
         'PENDIENTE',
         'CONFIRMADA',
@@ -234,8 +234,8 @@ describe('QA-18.1: calificar al arrendatario', () => {
     });
   });
 
-  describe('criterio 3: una sola vez', () => {
-    it('R05: calificar otra vez: 409 «Esta reserva ya fue calificada.» y se conserva la primera', async () => {
+  describe('una sola vez (AC3)', () => {
+    it('AC3: calificar otra vez: 409 «Esta reserva ya fue calificada.» y se conserva la primera (R05)', async () => {
       const r = await reservation();
       await rate(r.id, { puntaje: 2, comentario: 'Llegó tarde' }).expect(201);
 
@@ -254,7 +254,7 @@ describe('QA-18.1: calificar al arrendatario', () => {
       ]);
     });
 
-    it('R06: cinco envíos a la vez (doble clic, pestañas): uno 201, cuatro 409 y una sola fila (5 repeticiones)', async () => {
+    it('AC3: cinco envíos a la vez (doble clic, pestañas): uno 201, cuatro 409 y una sola fila (5 repeticiones) (R06)', async () => {
       for (let vuelta = 0; vuelta < 5; vuelta++) {
         const r = await reservation();
         const respuestas = await Promise.all(
@@ -268,8 +268,8 @@ describe('QA-18.1: calificar al arrendatario', () => {
     });
   });
 
-  describe('criterio 4: reserva de un bien de otro arrendador', () => {
-    it('R07: 404 «La reserva no existe.», igual que una inexistente, aunque no esté COMPLETADA', async () => {
+  describe('reserva de un bien de otro arrendador (AC4)', () => {
+    it('AC4: 404 «La reserva no existe.», igual que una inexistente, aunque no esté COMPLETADA (R07)', async () => {
       const completada = await reservation('COMPLETADA', otherLandlord);
       const enCurso = await reservation('EN_CURSO', otherLandlord);
 
@@ -281,8 +281,8 @@ describe('QA-18.1: calificar al arrendatario', () => {
     });
   });
 
-  describe('criterio 5: valores inválidos', () => {
-    it('R08: puntaje 0, 6, 4.5, "5" o sin puntaje; comentario de 501 o que no es texto: 400 con qué corregir y no se guarda nada', async () => {
+  describe('valores inválidos (AC5)', () => {
+    it('AC5: puntaje 0, 6, 4.5, "5" o sin puntaje; comentario de 501 o que no es texto: 400 con qué corregir y no se guarda nada (R08)', async () => {
       const r = await reservation();
       const malos: [Record<string, unknown>, RegExp][] = [
         [{ puntaje: 0 }, /puntaje/i],
@@ -302,7 +302,7 @@ describe('QA-18.1: calificar al arrendatario', () => {
     });
   });
 
-  describe('permisos por rol', () => {
+  describe('casos negativos: permisos por rol', () => {
     it('R09: el arrendatario no puede usar la función (403) y sin sesión es 401; no se guarda nada', async () => {
       const r = await reservation();
       await rate(r.id, { puntaje: 1 }, tenant).expect(403);
