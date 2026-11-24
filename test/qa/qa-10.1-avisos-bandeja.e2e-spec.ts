@@ -11,6 +11,10 @@ import { createTestPrismaClient } from '../helpers/test-database.js';
 /**
  * QA-10.1 (MP4-110): avisos, lectura y privacidad de la bandeja (H10).
  *
+ * Los ids (C01 a C12) se repiten en docs/qa/QA-10.1-avisos-bandeja.md. Los
+ * casos que prueban un criterio de aceptación de H10 empiezan con «ACn:» y
+ * conservan su id al final, entre paréntesis.
+ *
  * Recorre la historia desde el lado del usuario, con operaciones reales por
  * HTTP: un evento (reserva, decisión, pago o mensaje) → el aviso aparece en la
  * bandeja de su destinatario como pendiente y suma en el contador → se lee →
@@ -56,7 +60,7 @@ interface Item {
 
 const BIEN = 'Cámara Canon R6';
 
-describe('QA-10.1: avisos, lectura y privacidad de la bandeja', () => {
+describe('H10. Consultar notificaciones de mi alquiler', () => {
   const tag = `qa-10.1-${randomUUID()}@test.local`;
   let app: INestApplication;
   let A: Usuario;
@@ -246,7 +250,7 @@ describe('QA-10.1: avisos, lectura y privacidad de la bandeja', () => {
   });
 
   describe('los eventos llegan a la bandeja de su destinatario', () => {
-    it('C01: solicitud nueva → pendiente en la bandeja del arrendador, no en otras', async () => {
+    it('AC5: solicitud nueva → pendiente en la bandeja del arrendador, no en otras (C01)', async () => {
       const antes = await cuadra(A);
       const reservaId = await solicitar();
       const ref = { tipo: 'reserva', id: reservaId };
@@ -258,7 +262,7 @@ describe('QA-10.1: avisos, lectura y privacidad de la bandeja', () => {
       expect(await conReferencia(X, 'reserva', reservaId)).toHaveLength(0);
     });
 
-    it('C02: aprobación → «Reserva CONFIRMADA» pendiente para el arrendatario', async () => {
+    it('AC1: resultado de la solicitud, aprobación → «Reserva CONFIRMADA» pendiente para el arrendatario (C02)', async () => {
       const reservaId = await solicitar();
       const antesT = await cuadra(T);
       const antesA = await cuadra(A);
@@ -275,7 +279,7 @@ describe('QA-10.1: avisos, lectura y privacidad de la bandeja', () => {
       expect(await conReferencia(X, 'reserva', reservaId)).toHaveLength(0);
     });
 
-    it('C03: rechazo con motivo → «Reserva RECHAZADA» con el motivo para el arrendatario', async () => {
+    it('AC1: resultado de la solicitud, rechazo con motivo → «Reserva RECHAZADA» con el motivo para el arrendatario (C03)', async () => {
       const reservaId = await solicitar();
       const antesT = await cuadra(T);
       await decidir(reservaId, {
@@ -293,7 +297,7 @@ describe('QA-10.1: avisos, lectura y privacidad de la bandeja', () => {
       expect(await conReferencia(X, 'reserva', reservaId)).toHaveLength(0);
     });
 
-    it('C04: pago rechazado → solo el arrendatario recibe «Pago rechazado»', async () => {
+    it('AC2: resultado del pago, rechazado → solo el arrendatario recibe «Pago rechazado» (C04)', async () => {
       const reservaId = await confirmada();
       const antesT = await cuadra(T);
       const antesA = await cuadra(A);
@@ -307,7 +311,7 @@ describe('QA-10.1: avisos, lectura y privacidad de la bandeja', () => {
       expect(await conReferencia(A, ref.tipo, ref.id)).toHaveLength(0);
     });
 
-    it('C05: pago aprobado → «Pago aprobado» al arrendatario y «Pago confirmado» al arrendador', async () => {
+    it('AC6: pago confirmado → «Pago confirmado» al arrendador y «Pago aprobado» al arrendatario (C05)', async () => {
       const reservaId = await confirmada();
       const antesT = await cuadra(T);
       const antesA = await cuadra(A);
@@ -325,7 +329,7 @@ describe('QA-10.1: avisos, lectura y privacidad de la bandeja', () => {
       expect(await cuadra(X)).toBe(antesX);
     });
 
-    it('C06: mensaje nuevo → aviso al otro participante, en los dos sentidos', async () => {
+    it('AC7: mensaje nuevo → aviso al otro participante, en los dos sentidos (C06)', async () => {
       const conversacion = await http()
         .post(`/api/v1/publicaciones/${listingId}/conversaciones`)
         .set(auth(T))
@@ -350,7 +354,7 @@ describe('QA-10.1: avisos, lectura y privacidad de la bandeja', () => {
   });
 
   describe('lectura', () => {
-    it('C07: leer un aviso lo marca, sigue en el historial y baja el contador', async () => {
+    it('AC3: marcar como leída: deja de estar pendiente, sigue en el historial y baja el contador (C07)', async () => {
       const reservaId = await solicitar();
       const ref = { tipo: 'reserva', id: reservaId };
       const item = await pendienteEn(A, ref, 'Nueva solicitud de reserva');
@@ -398,7 +402,7 @@ describe('QA-10.1: avisos, lectura y privacidad de la bandeja', () => {
   });
 
   describe('privacidad', () => {
-    it('C09: una notificación ajena responde igual que una inexistente y no se modifica', async () => {
+    it('AC4: una notificación ajena no se puede marcar: responde igual que una inexistente y no se modifica (C09)', async () => {
       const reservaId = await solicitar();
       const deA = await pendienteEn(
         A,
@@ -450,7 +454,7 @@ describe('QA-10.1: avisos, lectura y privacidad de la bandeja', () => {
   });
 
   describe('recorrido completo y reintentos', () => {
-    it('C11: evento → pendiente → contador → lectura → historial → contador baja, cuadrando en cada paso', async () => {
+    it('AC8: el contador de no leídas sube y baja con la bandeja en cada paso: evento → pendiente → lectura → historial (C11)', async () => {
       const a0 = await cuadra(A);
       const t0 = await cuadra(T);
 

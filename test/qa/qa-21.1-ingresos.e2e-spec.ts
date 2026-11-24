@@ -28,6 +28,10 @@ import { createTestPrismaClient } from '../helpers/test-database.js';
  * - El REVISOR solo lo crea el seed: aquí se crea en la base y su token se
  *   firma con el JwtService de la app.
  *
+ * Los ids (C01 a C22) se repiten en docs/qa/QA-21.1-ingresos.md. Los casos que
+ * prueban un criterio de aceptación de H21 empiezan con «ACn:» y conservan su
+ * id al final, entre paréntesis.
+ *
  * Corre contra la base `_test` (test/helpers/test-database.ts). Los correos
  * llevan un sufijo único por ejecución y en afterAll se borra solo lo creado.
  */
@@ -53,7 +57,7 @@ interface Reporte {
 
 type Quien = 'a' | 'b' | 'c' | 'd' | 'inquilino' | 'revisor';
 
-describe('QA-21.1: reporte de ingresos, cálculo y permisos', () => {
+describe('H21. Ver los ingresos del arrendador', () => {
   const sufijo = `qa-21.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   let app: INestApplication<App>;
@@ -304,7 +308,7 @@ describe('QA-21.1: reporte de ingresos, cálculo y permisos', () => {
   });
 
   describe('cálculo', () => {
-    it('C01: sin fechas usa marzo (mes en curso en El Salvador) con los importes esperados', async () => {
+    it('AC3: sin fechas usa el mes en curso en El Salvador (marzo) con los importes esperados (C01)', async () => {
       const r = await reporte(URL_BASE);
       expect(r).toEqual({
         desde: '2027-03-01',
@@ -323,7 +327,7 @@ describe('QA-21.1: reporte de ingresos, cálculo y permisos', () => {
       });
     });
 
-    it('C02: total = suma de porBien = suma de rental_cost APROBADO en la base, con 2 decimales', async () => {
+    it('AC1: total y por bien con 2 decimales: total = suma de porBien = suma de rental_cost APROBADO en la base (C02)', async () => {
       const r = await reporte(MARZO);
       expect(r.total).toMatch(IMPORTE);
       for (const b of r.porBien) expect(b.ingreso).toMatch(IMPORTE);
@@ -345,7 +349,7 @@ describe('QA-21.1: reporte de ingresos, cálculo y permisos', () => {
       expect(agg._sum.rentalCost!.toFixed(2)).toBe(r.total);
     });
 
-    it('C03: el depósito no cuenta: total exacto 97.65 y distinto de la suma de total_amount', async () => {
+    it('AC2: el depósito no cuenta: total exacto 97.65 y distinto de la suma de total_amount (C03)', async () => {
       const r = await reporte(MARZO);
       expect(r.total).toBe('97.65');
       expect(porNombre(r).Andamio).toBe('85.25');
@@ -409,7 +413,7 @@ describe('QA-21.1: reporte de ingresos, cálculo y permisos', () => {
       expect(abr1.total).toBe('7.00');
     });
 
-    it('C08: rango propio inclusivo que cruza meses (28-feb a 1-abr) suma todo', async () => {
+    it('AC3: un rango propio inclusivo que cruza meses (28-feb a 1-abr) suma todo (C08)', async () => {
       const r = await reporte(`${URL_BASE}?desde=2027-02-28&hasta=2027-04-01`);
       expect(r).toMatchObject({
         desde: '2027-02-28',
@@ -445,7 +449,7 @@ describe('QA-21.1: reporte de ingresos, cálculo y permisos', () => {
       });
     });
 
-    it('C10: bien sin pagos aparece con 0.00 junto a dos bienes con pagos mezclados', async () => {
+    it('AC4: un bien sin ingresos aparece con 0.00 junto a dos bienes con pagos (C10)', async () => {
       const r = await reporte(MARZO);
       expect(r.porBien).toHaveLength(3);
       expect(r.porBien.find((b) => b.publicacionId === bien.bodega)).toEqual({
@@ -461,7 +465,7 @@ describe('QA-21.1: reporte de ingresos, cálculo y permisos', () => {
   });
 
   describe('aislamiento entre arrendadores', () => {
-    it('C11: A solo ve sus bienes y ningún dato de B; B solo ve lo suyo', async () => {
+    it('AC5: un arrendador solo ve sus bienes y ningún dato de otro arrendador (C11)', async () => {
       const r = await reporte(MARZO);
       expect(Object.keys(r).sort()).toEqual(
         ['desde', 'hasta', 'moneda', 'porBien', 'total'].sort(),
@@ -575,7 +579,7 @@ describe('QA-21.1: reporte de ingresos, cálculo y permisos', () => {
         .expect(401);
     });
 
-    it('C19: un arrendatario recibe 403', async () => {
+    it('AC6: un arrendatario no tiene acceso: 403 (C19)', async () => {
       await get(MARZO, 'inquilino').expect(403);
     });
 

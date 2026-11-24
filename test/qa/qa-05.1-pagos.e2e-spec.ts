@@ -25,7 +25,9 @@ import { createTestPrismaClient } from '../helpers/test-database.js';
 /**
  * QA-05.1 (MP4-67): tarjetas de prueba y validaciones de cobro (H05).
  *
- * Los ids (C01 a C19) se repiten en docs/qa/QA-05.1-pagos.md. Cada caso llama
+ * Los ids (C01 a C19) se repiten en docs/qa/QA-05.1-pagos.md. Los casos que
+ * prueban un criterio de aceptación de H05 empiezan con «ACn:» y conservan su
+ * id al final, entre paréntesis. Cada caso llama
  * a POST /api/v1/reservas/:id/pagos/simulados con el JWT de un login real y
  * revisa la respuesta, la base y, para los avisos, la bandeja de H10.
  *
@@ -109,7 +111,7 @@ type EstadoReserva =
   | 'EN_CURSO'
   | 'COMPLETADA';
 
-describe('QA-05.1: tarjetas de prueba y validaciones de cobro', () => {
+describe('H05. Realizar un pago simulado', () => {
   const sufijo = `qa-05.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   let app: INestApplication<App>;
@@ -296,7 +298,7 @@ describe('QA-05.1: tarjetas de prueba y validaciones de cobro', () => {
   });
 
   describe('resultado de la pasarela', () => {
-    it('C01: 4242 con número de 13 dígitos aprueba con el monto de la reserva', async () => {
+    it('AC2: tarjeta 4242 aprueba el pago con el monto de la reserva (C01)', async () => {
       const reservaId = await reserva({
         rentalCost: '123.45',
         depositAmount: '76.55',
@@ -325,7 +327,7 @@ describe('QA-05.1: tarjetas de prueba y validaciones de cobro', () => {
       expect(fila.totalAmount.toFixed(2)).toBe('200.00');
     });
 
-    it('C02: 0002 con número de 19 dígitos rechaza con motivo; la reserva sigue CONFIRMADA y 4242 aprueba en el intento 2', async () => {
+    it('AC3: tarjeta 0002 rechaza con motivo, la reserva sigue CONFIRMADA y se puede reintentar (C02)', async () => {
       const reservaId = await reserva();
       const rechazo = await pagar(reservaId, tarjeta(N19_RECHAZA, CVV_B));
       expect(rechazo.status).toBe(201);
@@ -355,7 +357,7 @@ describe('QA-05.1: tarjetas de prueba y validaciones de cobro', () => {
       ]);
     });
 
-    it('C03: tres rechazos con tarjetas distintas; el cuarto (aunque sea 4242) da 409 INTENTOS_AGOTADOS sin fila ni aviso', async () => {
+    it('AC7: tras tres rechazos el 4º intento (aunque sea 4242) queda bloqueado con 409 INTENTOS_AGOTADOS, sin fila ni aviso (C03)', async () => {
       const reservaId = await reserva();
       for (const [n, numero] of [
         [1, N16_RECHAZA_1],
@@ -457,7 +459,7 @@ describe('QA-05.1: tarjetas de prueba y validaciones de cobro', () => {
   });
 
   describe('operaciones prohibidas', () => {
-    it('C06: segundo pago de una reserva pagada da 409 PAGO_YA_APROBADO (con 4242 y con 0002) sin fila nueva', async () => {
+    it('AC6: sin doble pago: una reserva pagada da 409 PAGO_YA_APROBADO (con 4242 y con 0002) sin fila nueva (C06)', async () => {
       const reservaId = await reserva();
       expect((await pagar(reservaId)).status).toBe(201);
 
@@ -519,7 +521,7 @@ describe('QA-05.1: tarjetas de prueba y validaciones de cobro', () => {
       'EN_CURSO',
       'COMPLETADA',
     ] as const)(
-      'C08: reserva %s da 409 RESERVA_NO_CONFIRMADA sin crear intento',
+      'AC4: una reserva %s no se puede pagar: 409 RESERVA_NO_CONFIRMADA sin crear intento (C08)',
       async (status) => {
         const reservaId = await reserva({ status });
         const res = await pagar(reservaId);
@@ -594,7 +596,7 @@ describe('QA-05.1: tarjetas de prueba y validaciones de cobro', () => {
       expect(await intentos(reservaId)).toHaveLength(0);
     });
 
-    it('C11: un monto en la query o en un header no cambia el cobro: sale de la reserva', async () => {
+    it('AC1: el cobro es el costo del alquiler más el depósito de la reserva; un monto en la query o en un header no lo cambia (C11)', async () => {
       const reservaId = await reserva({
         rentalCost: '999999.99',
         depositAmount: '0.01',
@@ -639,7 +641,7 @@ describe('QA-05.1: tarjetas de prueba y validaciones de cobro', () => {
   });
 
   describe('avisos', () => {
-    it('C13: APROBADO avisa «Pago aprobado» al arrendatario y «Pago confirmado» al arrendador, sin datos de la tarjeta', async () => {
+    it('AC8: al aprobar se avisa a M8: «Pago aprobado» al arrendatario y «Pago confirmado» al arrendador, sin datos de la tarjeta (C13)', async () => {
       const reservaId = await reserva({
         rentalCost: '123.45',
         depositAmount: '76.55',
@@ -672,7 +674,7 @@ describe('QA-05.1: tarjetas de prueba y validaciones de cobro', () => {
       expect(await avisosDe('t2', pagoId)).toHaveLength(0);
     });
 
-    it('C14: cada RECHAZADO avisa solo al arrendatario («Pago rechazado»), sin deduplicar los tres intentos', async () => {
+    it('AC8: al rechazar se avisa a M8: un «Pago rechazado» por intento, solo al arrendatario (C14)', async () => {
       const reservaId = await reserva();
       const ids: string[] = [];
       for (const numero of [N16_RECHAZA_1, N16_RECHAZA_2, N19_RECHAZA]) {
@@ -750,7 +752,7 @@ describe('QA-05.1: tarjetas de prueba y validaciones de cobro', () => {
         .replace(/\b[0-9a-f]{32,}\b/gi, '<hex>')
         .replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, '<jwt>');
 
-    it('C17: ninguna tabla de la base tiene el número completo ni el CVV; solo los últimos 4', async () => {
+    it('AC5: no se guardan los datos de la tarjeta: ninguna tabla tiene el número completo ni el CVV, solo los últimos 4 (C17)', async () => {
       const tablas = await prisma.$queryRaw<{ tablename: string }[]>`
         SELECT tablename FROM pg_tables WHERE schemaname = 'public'`;
       expect(tablas.length).toBeGreaterThan(10);
