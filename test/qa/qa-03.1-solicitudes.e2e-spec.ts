@@ -24,7 +24,7 @@ const DAY = 24 * HOUR;
 
 type Session = { token: string; userId: string };
 
-describe('QA-03.1: solicitar una reserva', () => {
+describe('H03. Solicitar una reserva', () => {
   const email = `qa-03.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   let app: INestApplication<App>;
@@ -184,7 +184,7 @@ describe('QA-03.1: solicitar una reserva', () => {
   });
 
   describe('solicitud válida y disponibilidad', () => {
-    it('S01: una solicitud válida queda PENDIENTE, con el costo del servidor, y no aparta fechas', async () => {
+    it('AC1: una solicitud válida queda PENDIENTE, con el costo del servidor, y no aparta fechas (S01)', async () => {
       const id = await newListing();
       const day = freshDay();
 
@@ -225,7 +225,7 @@ describe('QA-03.1: solicitar una reserva', () => {
       );
     });
 
-    it('S03: un período que se cruza con una CONFIRMADA o EN_CURSO da 409 y no guarda nada', async () => {
+    it('AC4: un período que se cruza con una CONFIRMADA o EN_CURSO da 409 y no guarda nada (S03)', async () => {
       for (const status of ['CONFIRMADA', 'EN_CURSO'] as const) {
         const id = await newListing();
         const day = freshDay();
@@ -313,7 +313,7 @@ describe('QA-03.1: solicitar una reserva', () => {
   });
 
   describe('fechas', () => {
-    it('S08: un inicio que ya pasó da 400 FECHA_PASADA y no guarda nada', async () => {
+    it('AC5: un inicio que ya pasó da 400 FECHA_PASADA y no guarda nada (S08)', async () => {
       const id = await newListing();
       const antes = await avisosDe(landlord.userId);
 
@@ -339,7 +339,7 @@ describe('QA-03.1: solicitar una reserva', () => {
       await pedir(id, luego, at(luego, 3)).expect(201);
     });
 
-    it('S10: fin anterior o igual al inicio, fechas sin zona o inexistentes dan 400', async () => {
+    it('AC3: fin anterior o igual al inicio, fechas sin zona o inexistentes dan 400 (S10)', async () => {
       const id = await newListing();
       const day = freshDay();
       const base = { publicacionId: id };
@@ -466,7 +466,7 @@ describe('QA-03.1: solicitar una reserva', () => {
       await detalle(reserva, null).expect(401);
     });
 
-    it('S17: el detalle trae estado, fechas, costo y depósito aparte, y el motivo si la rechazaron', async () => {
+    it('AC2: el detalle trae estado, fechas, costo y depósito aparte, y el motivo si la rechazaron (S17)', async () => {
       const id = await newListing();
       const day = freshDay();
       const res = await pedir(id, at(day, 9), at(day, 12)).expect(201);
@@ -502,7 +502,7 @@ describe('QA-03.1: solicitar una reserva', () => {
   });
 
   describe('aviso al arrendador', () => {
-    it('S18: el arrendador recibe «Nueva solicitud de reserva» con el bien y las fechas; nadie más', async () => {
+    it('AC6: el arrendador recibe «Nueva solicitud de reserva» con el bien y las fechas; nadie más (S18)', async () => {
       const id = await newListing();
       const day = freshDay();
       const antes = {
@@ -561,7 +561,7 @@ describe('QA-03.1: solicitar una reserva', () => {
   });
 
   describe('verificación de identidad', () => {
-    it('S20: si el bien la exige, sin verificación o con una PENDIENTE da 422 y no guarda', async () => {
+    it('AC7: si el bien la exige, sin verificación o con una PENDIENTE da 422 y no guarda (S20)', async () => {
       const id = await newListing({ requiresVerification: true });
       const day = freshDay();
 

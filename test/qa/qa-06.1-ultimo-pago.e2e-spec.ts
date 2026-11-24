@@ -39,7 +39,7 @@ type EstadoReserva =
 const APRUEBA = '4242424242424242';
 const RECHAZA = '4000000000000002';
 
-describe('QA-06.1: consulta de pagos propios, recientes y ausentes', () => {
+describe('H06. Consultar el estado de un pago', () => {
   const sufijo = `qa-06.1-${randomUUID()}@test.local`;
   const password = 'Str0ngPass';
   let app: INestApplication<App>;
@@ -177,7 +177,7 @@ describe('QA-06.1: consulta de pagos propios, recientes y ausentes', () => {
     await prisma.$disconnect();
   });
 
-  it('C01 pago aprobado propio: 200 con la forma exacta', async () => {
+  it('AC1: pago aprobado propio: 200 con la forma exacta (C01)', async () => {
     const reservaId = await reserva();
     const pagado = await pagar(reservaId, APRUEBA);
 
@@ -207,7 +207,7 @@ describe('QA-06.1: consulta de pagos propios, recientes y ausentes', () => {
     expect(res.body.fechaRegistro).toBe(fila.createdAt.toISOString());
   });
 
-  it('C02 varios intentos: cada consulta muestra el más reciente', async () => {
+  it('AC2: varios intentos: cada consulta muestra el más reciente (C02)', async () => {
     const reservaId = await reserva();
     const vistos: string[] = [];
 
@@ -236,7 +236,7 @@ describe('QA-06.1: consulta de pagos propios, recientes y ausentes', () => {
     expect(aprobado.body).not.toHaveProperty('motivo');
   });
 
-  it('C04 reserva propia sin pagos: 404 PAGO_NO_REGISTRADO', async () => {
+  it('AC3: reserva propia sin pagos: 404 PAGO_NO_REGISTRADO (C04)', async () => {
     const res = await ultimo(await reserva());
 
     expect(res.status).toBe(404);
@@ -248,7 +248,7 @@ describe('QA-06.1: consulta de pagos propios, recientes y ausentes', () => {
     });
   });
 
-  it('C05 reserva ajena (con y sin pago) igual que una inexistente', async () => {
+  it('AC4: reserva ajena (con y sin pago) igual que una inexistente (C05)', async () => {
     const conPago = await reserva();
     await pagar(conPago, APRUEBA);
     const sinPago = await reserva();
