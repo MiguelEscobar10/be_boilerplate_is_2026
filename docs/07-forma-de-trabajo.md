@@ -13,10 +13,14 @@ a Finalizada. El detalle está en [`CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ## Ramas
 
-No usamos Git Flow completo ni rama `develop`: todo se integra directo en
+No seguimos Git Flow. Durante todo el desarrollo, todos los PRs fueron
+directo a `main`. La rama `develop` se creó al final, con el mismo contenido
+que `main`, y nunca se usó para integrar. La rama `release/1.0.0` salió de
 `main`.
 
-- `main`: la única rama de integración. Cada PR se fusiona aquí.
+- `main`: la rama a la que se fusionaron todos los PRs.
+- `develop`: creada al final como copia de `main`; no recibió PRs durante el
+  desarrollo.
 - `feat/MP4-<n>-<ID>-<slug>`: una rama por tarea de Jira, ya creada desde la
   tarjeta. Por ejemplo `feat/MP4-108-BE-10.2-conectar-los-eventos-de-reservas-pagos`.
 - `test/MP4-<n>-<ID>-<slug>`: las tareas de QA. Por ejemplo
@@ -24,7 +28,8 @@ No usamos Git Flow completo ni rama `develop`: todo se integra directo en
 - `docs/...`: algunos cambios de documentación (por ejemplo
   `docs/MP4-130-readme-y-documentacion`).
 - Durante el desarrollo no hubo ramas `release/*` ni `hotfix/*`. La versión
-  1.0.0 se publica con la rama `release/1.0.0`, siguiendo el procedimiento de
+  1.0.0 se publica con la rama `release/1.0.0`, creada desde `main`, siguiendo
+  el procedimiento de
   [despliegue](06-despliegue.md#cómo-se-publica-una-nueva-versión).
 
 ## Commits
